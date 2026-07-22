@@ -5,14 +5,21 @@ import { fontFamilies } from '@/theme';
 type AuthFooterProps = {
   prompt: string;
   action: string;
+  disabled?: boolean;
   onPress: () => void;
 };
 
-export function AuthFooter({ prompt, action, onPress }: AuthFooterProps) {
+export function AuthFooter({ prompt, action, disabled = false, onPress }: AuthFooterProps) {
   return (
     <View style={styles.row}>
       <Text style={styles.prompt}>{prompt} </Text>
-      <Pressable accessibilityRole="link" hitSlop={8} onPress={onPress}>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        hitSlop={8}
+        onPress={onPress}
+      >
         <Text style={styles.action}>{action}</Text>
       </Pressable>
     </View>

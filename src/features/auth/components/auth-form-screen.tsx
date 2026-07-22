@@ -1,6 +1,14 @@
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { AuthFooter } from './auth-footer';
 import { AuthScaffold } from './auth-scaffold';
@@ -18,6 +26,11 @@ type AuthFormScreenProps = {
   mode: AuthMode;
 };
 
+const AUTH_ENTRANCE_DURATION = 400;
+const AUTH_EXIT_DURATION = 240;
+const AUTH_TRANSITION_OFFSET = 12;
+const AUTH_TRANSITION_EASING = Easing.inOut(Easing.cubic);
+
 export function AuthFormScreen({ mode }: AuthFormScreenProps) {
   const router = useRouter();
   const passwordRef = useRef<TextInput>(null);
@@ -29,6 +42,72 @@ export function AuthFormScreen({ mode }: AuthFormScreenProps) {
   const completeOnboarding = useOnboardingStore((state) => state.completeOnboarding);
   const isLogin = mode === 'login';
   const activeMutation = isLogin ? signIn : signUp;
+  const screenOpacity = useRef(new Animated.Value(0)).current;
+  const screenTranslateX = useRef(
+    new Animated.Value(isLogin ? -AUTH_TRANSITION_OFFSET : AUTH_TRANSITION_OFFSET),
+  ).current;
+  const screenAnimation = useRef<Animated.CompositeAnimation | null>(null);
+  const reduceMotion = useRef(false);
+  const transitioning = useRef(true);
+  const [isTransitioning, setIsTransitioning] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    function finishTransition() {
+      screenAnimation.current?.stop();
+      screenOpacity.setValue(1);
+      screenTranslateX.setValue(0);
+      transitioning.current = false;
+      if (isMounted) setIsTransitioning(false);
+    }
+
+    function handleReduceMotionChanged(isEnabled: boolean) {
+      reduceMotion.current = isEnabled;
+      if (isEnabled) finishTransition();
+    }
+
+    void AccessibilityInfo.isReduceMotionEnabled().then((isEnabled) => {
+      if (!isMounted) return;
+      reduceMotion.current = isEnabled;
+
+      if (isEnabled) {
+        finishTransition();
+        return;
+      }
+
+      screenAnimation.current = Animated.parallel([
+        Animated.timing(screenOpacity, {
+          duration: AUTH_ENTRANCE_DURATION,
+          easing: AUTH_TRANSITION_EASING,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.timing(screenTranslateX, {
+          duration: AUTH_ENTRANCE_DURATION,
+          easing: AUTH_TRANSITION_EASING,
+          toValue: 0,
+          useNativeDriver: true,
+        }),
+      ]);
+      screenAnimation.current.start(({ finished }) => {
+        if (!finished || !isMounted) return;
+        transitioning.current = false;
+        setIsTransitioning(false);
+      });
+    });
+
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      handleReduceMotionChanged,
+    );
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+      screenAnimation.current?.stop();
+    };
+  }, [screenOpacity, screenTranslateX]);
 
   async function handleSubmit() {
     const nextErrors = validateAuthForm(email, password);
@@ -45,81 +124,123 @@ export function AuthFormScreen({ mode }: AuthFormScreenProps) {
     }
   }
 
-  return (
-    <AuthScaffold
-      footer={
-        <AuthFooter
-          action={isLogin ? 'Get started!' : 'Log in'}
-          onPress={() => router.replace(isLogin ? '/(auth)/sign-up' : '/(auth)/login')}
-          prompt={isLogin ? "Don't have an account?" : 'Already have an account?'}
-        />
-      }
-    >
-      <TaskMark />
-      <Text accessibilityRole="header" style={styles.title}>
-        {isLogin ? 'Welcome back!' : "Let's get started!"}
-      </Text>
+  function handleModeToggle() {
+    if (transitioning.current) return;
 
-      <View style={styles.form}>
-        <FormField
-          autoComplete="email"
-          error={errors.email}
-          keyboardType="email-address"
-          label="Email address"
-          onChangeText={(value) => {
-            setEmail(value);
-            activeMutation.reset();
-            if (errors.email) setErrors((current) => ({ ...current, email: undefined }));
-          }}
-          onSubmitEditing={() => passwordRef.current?.focus()}
-          placeholder="you@example.com"
-          returnKeyType="next"
-          textContentType="emailAddress"
-          value={email}
-        />
-        <View>
+    const destination = isLogin ? '/(auth)/sign-up' : '/(auth)/login';
+    if (reduceMotion.current) {
+      router.replace(destination);
+      return;
+    }
+
+    transitioning.current = true;
+    setIsTransitioning(true);
+    screenAnimation.current?.stop();
+    screenAnimation.current = Animated.parallel([
+      Animated.timing(screenOpacity, {
+        duration: AUTH_EXIT_DURATION,
+        easing: AUTH_TRANSITION_EASING,
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+      Animated.timing(screenTranslateX, {
+        duration: AUTH_EXIT_DURATION,
+        easing: AUTH_TRANSITION_EASING,
+        toValue: isLogin ? -AUTH_TRANSITION_OFFSET : AUTH_TRANSITION_OFFSET,
+        useNativeDriver: true,
+      }),
+    ]);
+    screenAnimation.current.start(({ finished }) => {
+      if (finished) router.replace(destination);
+    });
+  }
+
+  return (
+    <Animated.View
+      needsOffscreenAlphaCompositing
+      renderToHardwareTextureAndroid
+      style={[
+        styles.screen,
+        { opacity: screenOpacity, transform: [{ translateX: screenTranslateX }] },
+      ]}
+    >
+      <AuthScaffold
+        footer={
+          <AuthFooter
+            action={isLogin ? 'Get started!' : 'Log in'}
+            disabled={isTransitioning}
+            onPress={handleModeToggle}
+            prompt={isLogin ? "Don't have an account?" : 'Already have an account?'}
+          />
+        }
+      >
+        <TaskMark />
+        <Text accessibilityRole="header" style={styles.title}>
+          {isLogin ? 'Welcome back!' : "Let's get started!"}
+        </Text>
+
+        <View style={styles.form}>
           <FormField
-            autoComplete={isLogin ? 'current-password' : 'new-password'}
-            error={errors.password}
-            label="Password"
+            autoComplete="email"
+            error={errors.email}
+            keyboardType="email-address"
+            label="Email address"
             onChangeText={(value) => {
-              setPassword(value);
+              setEmail(value);
               activeMutation.reset();
-              if (errors.password) setErrors((current) => ({ ...current, password: undefined }));
+              if (errors.email) setErrors((current) => ({ ...current, email: undefined }));
             }}
-            onSubmitEditing={handleSubmit}
-            placeholder="At least 8 characters"
-            ref={passwordRef}
-            returnKeyType="done"
-            secureTextEntry
-            textContentType={isLogin ? 'password' : 'newPassword'}
-            value={password}
+            onSubmitEditing={() => passwordRef.current?.focus()}
+            placeholder="you@example.com"
+            returnKeyType="next"
+            textContentType="emailAddress"
+            value={email}
+          />
+          <View>
+            <FormField
+              autoComplete={isLogin ? 'current-password' : 'new-password'}
+              error={errors.password}
+              label="Password"
+              onChangeText={(value) => {
+                setPassword(value);
+                activeMutation.reset();
+                if (errors.password) setErrors((current) => ({ ...current, password: undefined }));
+              }}
+              onSubmitEditing={handleSubmit}
+              placeholder="At least 8 characters"
+              ref={passwordRef}
+              returnKeyType="done"
+              secureTextEntry
+              textContentType={isLogin ? 'password' : 'newPassword'}
+              value={password}
+            />
+          </View>
+
+          {activeMutation.errorMessage ? (
+            <Text accessibilityRole="alert" style={styles.authError}>
+              {activeMutation.errorMessage}
+            </Text>
+          ) : null}
+
+          <Button
+            disabled={activeMutation.isPending}
+            label={activeMutation.isPending ? 'Please wait…' : isLogin ? 'Log in' : 'Sign up'}
+            labelStyle={styles.submitLabel}
+            onPress={handleSubmit}
+            style={({ pressed }) => [
+              styles.submitButton,
+              { backgroundColor: pressed ? '#4848D5' : '#5C5CF4' },
+            ]}
+            testID="auth-submit-button"
           />
         </View>
-
-        {activeMutation.errorMessage ? (
-          <Text accessibilityRole="alert" style={styles.authError}>
-            {activeMutation.errorMessage}
-          </Text>
-        ) : null}
-
-        <Button
-          disabled={activeMutation.isPending}
-          label={activeMutation.isPending ? 'Please wait…' : isLogin ? 'Log in' : 'Sign up'}
-          labelStyle={styles.submitLabel}
-          onPress={handleSubmit}
-          style={({ pressed }) => [
-            styles.submitButton,
-            { backgroundColor: pressed ? '#1D4ED8' : '#2563EB' },
-          ]}
-          testID="auth-submit-button"
-        />
-      </View>
-    </AuthScaffold>
+      </AuthScaffold>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#FFFFFF' },
   title: {
     marginTop: 8,
     color: '#24324A',
@@ -140,7 +261,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 7,
     borderRadius: 16,
-    shadowColor: '#1D4ED8',
+    shadowColor: '#4646C8',
     shadowOffset: { width: 0, height: 7 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
