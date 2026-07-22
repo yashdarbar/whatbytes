@@ -156,7 +156,7 @@ export function TaskDetailsScreen({ task }: TaskDetailsScreenProps) {
           label={deleteTask.isPending ? 'Deleting…' : 'Delete task'}
           labelStyle={{ color: '#FFFFFF' }}
           onPress={confirmDelete}
-          style={[styles.deleteButton, { backgroundColor: theme.colors.danger }]}
+          style={[styles.deleteButton, { backgroundColor: theme.colors.deleteAction }]}
         />
       </ScrollView>
     </SafeAreaView>

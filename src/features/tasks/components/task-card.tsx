@@ -51,7 +51,7 @@ export function TaskCard({ task, disabled, onOpen, onDelete, onComplete }: TaskC
             onPress={requestDelete}
             style={({ pressed }) => [
               styles.deleteAction,
-              { backgroundColor: theme.colors.danger, opacity: pressed ? 0.82 : 1 },
+              { backgroundColor: theme.colors.deleteAction, opacity: pressed ? 0.82 : 1 },
             ]}
           >
             <Trash color="#FFFFFF" size={22} />

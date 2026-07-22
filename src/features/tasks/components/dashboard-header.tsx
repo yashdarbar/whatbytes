@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  AccessibilityInfo,
   Modal,
   Pressable,
   StyleSheet,
@@ -11,6 +12,12 @@ import {
 
 import { AppText, LayoutGrid, MoreHorizontal, Search, X } from '@/components/ui';
 import { useAppTheme, useThemeStore } from '@/theme';
+
+const SEARCH_PLACEHOLDER = 'Search tasks';
+const PLACEHOLDER_TYPE_DELAY = 90;
+const PLACEHOLDER_ERASE_DELAY = 55;
+const PLACEHOLDER_FULL_PAUSE = 1200;
+const PLACEHOLDER_EMPTY_PAUSE = 500;
 
 type DashboardHeaderProps = {
   email?: string | null;
@@ -36,11 +43,72 @@ export function DashboardHeader({
   const mode = useThemeStore((state) => state.mode);
   const setMode = useThemeStore((state) => state.setMode);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(true);
+  const [searchPlaceholder, setSearchPlaceholder] = useState(SEARCH_PLACEHOLDER);
   const useCompactToolbar = width < 360;
   const today = new Intl.DateTimeFormat(undefined, {
     day: 'numeric',
     month: 'long',
   }).format(new Date());
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void AccessibilityInfo.isReduceMotionEnabled().then((isEnabled) => {
+      if (isMounted) setReduceMotion(isEnabled);
+    });
+
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isSearchFocused || searchQuery || reduceMotion) {
+      setSearchPlaceholder(SEARCH_PLACEHOLDER);
+      return;
+    }
+
+    let characterIndex = 0;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    function schedule(callback: () => void, delay: number) {
+      timeout = setTimeout(callback, delay);
+    }
+
+    function typeNextCharacter() {
+      characterIndex += 1;
+      setSearchPlaceholder(SEARCH_PLACEHOLDER.slice(0, characterIndex));
+
+      if (characterIndex < SEARCH_PLACEHOLDER.length) {
+        schedule(typeNextCharacter, PLACEHOLDER_TYPE_DELAY);
+      } else {
+        schedule(eraseNextCharacter, PLACEHOLDER_FULL_PAUSE);
+      }
+    }
+
+    function eraseNextCharacter() {
+      characterIndex -= 1;
+      setSearchPlaceholder(SEARCH_PLACEHOLDER.slice(0, characterIndex));
+
+      if (characterIndex > 0) {
+        schedule(eraseNextCharacter, PLACEHOLDER_ERASE_DELAY);
+      } else {
+        schedule(typeNextCharacter, PLACEHOLDER_EMPTY_PAUSE);
+      }
+    }
+
+    setSearchPlaceholder('');
+    schedule(typeNextCharacter, PLACEHOLDER_EMPTY_PAUSE);
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [isSearchFocused, reduceMotion, searchQuery]);
 
   return (
     <View
@@ -66,8 +134,10 @@ export function DashboardHeader({
           <Search color={theme.colors.placeholder} size={17} />
           <TextInput
             accessibilityLabel="Search tasks"
+            onBlur={() => setIsSearchFocused(false)}
             onChangeText={onSearchChange}
-            placeholder="Search tasks"
+            onFocus={() => setIsSearchFocused(true)}
+            placeholder={searchPlaceholder}
             placeholderTextColor={theme.colors.placeholder}
             returnKeyType="search"
             style={[styles.searchInput, { color: '#252735' }]}
