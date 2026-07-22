@@ -52,7 +52,11 @@ export function TaskDetailsScreen({ task }: TaskDetailsScreenProps) {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.dashboardBackground }]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        style={styles.scroll}
+      >
         <View style={styles.header}>
           <Pressable
             accessibilityLabel="Back to tasks"
@@ -104,7 +108,9 @@ export function TaskDetailsScreen({ task }: TaskDetailsScreenProps) {
                 },
               ]}
             >
-              <Calendar color={theme.colors.primary} size={18} />
+              <View style={styles.dateIcon}>
+                <Calendar color={theme.colors.primary} size={18} />
+              </View>
               <AppText selectable style={[styles.fieldValue, styles.dateValue]}>
                 {dueDate}
               </AppText>
@@ -192,6 +198,7 @@ function DetailField({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
+  scroll: { width: '100%', maxWidth: 640, alignSelf: 'center' },
   content: { gap: 18, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 36 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backButton: {
@@ -227,8 +234,9 @@ const styles = StyleSheet.create({
   },
   descriptionField: { minHeight: 94, justifyContent: 'flex-start' },
   fieldValue: { fontSize: 14, lineHeight: 20 },
-  dateField: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  dateValue: { flex: 1 },
+  dateField: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
+  dateIcon: { flexShrink: 0, marginTop: 1 },
+  dateValue: { flex: 1, minWidth: 0 },
   priorityBadge: {
     alignSelf: 'flex-start',
     minHeight: 38,
@@ -236,6 +244,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 16,
+    paddingVertical: 9,
   },
   priorityText: { fontSize: 12, lineHeight: 18 },
   requestError: { fontSize: 12, lineHeight: 18 },

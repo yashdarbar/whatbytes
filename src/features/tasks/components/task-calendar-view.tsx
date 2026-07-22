@@ -7,6 +7,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -35,6 +36,9 @@ const weekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const MONTH_TRANSITION_DURATION = 320;
 const MONTH_TRANSITION_OFFSET = 14;
 const MONTH_TRANSITION_EASING = Easing.inOut(Easing.cubic);
+const CALENDAR_HORIZONTAL_INSET = 68;
+const MAX_DAY_CIRCLE_SIZE = 31;
+const MIN_DAY_CIRCLE_SIZE = 27;
 
 export function TaskCalendarView({
   displayedMonth,
@@ -50,6 +54,7 @@ export function TaskCalendarView({
   onSelectDate,
 }: TaskCalendarViewProps) {
   const theme = useAppTheme();
+  const { width } = useWindowDimensions();
   const monthOpacity = useRef(new Animated.Value(1)).current;
   const monthTranslateX = useRef(new Animated.Value(0)).current;
   const monthAnimation = useRef<Animated.CompositeAnimation | null>(null);
@@ -66,6 +71,11 @@ export function TaskCalendarView({
     day: 'numeric',
     month: 'long',
   }).format(selectedDate);
+  const calendarCellWidth = (width - CALENDAR_HORIZONTAL_INSET) / 7;
+  const dayCircleSize = Math.max(
+    MIN_DAY_CIRCLE_SIZE,
+    Math.min(MAX_DAY_CIRCLE_SIZE, calendarCellWidth - 6),
+  );
 
   const taskDates = useMemo(() => new Set(tasks.map((task) => toDateKey(task.dueDate))), [tasks]);
   const days = useMemo(() => {
@@ -169,23 +179,41 @@ export function TaskCalendarView({
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
+      style={styles.scroll}
     >
       <View style={[styles.calendarCard, theme.shadow, { backgroundColor: theme.colors.surface }]}>
         <View style={styles.monthHeader}>
-          <Pressable accessibilityLabel="Previous month" hitSlop={9} onPress={() => moveMonth(-1)}>
+          <Pressable
+            accessibilityLabel="Previous month"
+            accessibilityRole="button"
+            onPress={() => moveMonth(-1)}
+            style={styles.monthButton}
+          >
             <ChevronLeft color={theme.colors.textMuted} size={22} />
           </Pressable>
-          <Animated.View style={monthTransitionStyle}>
-            <AppText variant="label">{monthLabel}</AppText>
+          <Animated.View style={[styles.monthLabelContainer, monthTransitionStyle]}>
+            <AppText adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1} variant="label">
+              {monthLabel}
+            </AppText>
           </Animated.View>
-          <Pressable accessibilityLabel="Next month" hitSlop={9} onPress={() => moveMonth(1)}>
+          <Pressable
+            accessibilityLabel="Next month"
+            accessibilityRole="button"
+            onPress={() => moveMonth(1)}
+            style={styles.monthButton}
+          >
             <ChevronRight color={theme.colors.textMuted} size={22} />
           </Pressable>
         </View>
 
         <View style={styles.weekRow}>
           {weekdayLabels.map((label, index) => (
-            <AppText key={`${label}-${index}`} muted style={styles.weekday}>
+            <AppText
+              key={`${label}-${index}`}
+              maxFontSizeMultiplier={1.4}
+              muted
+              style={styles.weekday}
+            >
               {label}
             </AppText>
           ))}
@@ -211,11 +239,17 @@ export function TaskCalendarView({
                 <View
                   style={[
                     styles.dayCircle,
+                    {
+                      width: dayCircleSize,
+                      height: dayCircleSize,
+                      borderRadius: dayCircleSize / 2,
+                    },
                     selected && { backgroundColor: theme.colors.primary },
                     isToday && !selected && { borderColor: theme.colors.primary, borderWidth: 1 },
                   ]}
                 >
                   <AppText
+                    maxFontSizeMultiplier={1.4}
                     style={[styles.dayText, { color: selected ? '#FFFFFF' : theme.colors.text }]}
                   >
                     {date.getDate()}
@@ -260,9 +294,12 @@ export function TaskCalendarView({
 }
 
 const styles = StyleSheet.create({
+  scroll: { width: '100%', maxWidth: 720, alignSelf: 'center' },
   content: { gap: 18, padding: 18, paddingBottom: 28 },
   calendarCard: { gap: 12, borderRadius: 18, padding: 16 },
   monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  monthButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  monthLabelContainer: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 6 },
   weekRow: { flexDirection: 'row' },
   weekday: { width: '14.2857%', textAlign: 'center', fontSize: 11 },
   daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -277,7 +314,7 @@ const styles = StyleSheet.create({
   dayText: { fontSize: 12, lineHeight: 16 },
   taskDot: { position: 'absolute', bottom: 1, width: 4, height: 4, borderRadius: 2 },
   agenda: { gap: 8 },
-  selectedLabel: { marginBottom: 2, fontSize: 13 },
+  selectedLabel: { flexShrink: 1, marginBottom: 2, fontSize: 13 },
   noTasks: {
     alignItems: 'center',
     borderWidth: 1,

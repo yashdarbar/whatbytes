@@ -30,6 +30,7 @@ export function TaskSectionList({
   return (
     <SectionList
       contentContainerStyle={[styles.content, sections.length === 0 && styles.emptyContent]}
+      style={styles.list}
       sections={sections}
       keyExtractor={(task) => task.id}
       keyboardShouldPersistTaps="handled"
@@ -76,6 +77,7 @@ export function TaskSectionList({
 }
 
 const styles = StyleSheet.create({
+  list: { width: '100%', maxWidth: 720, alignSelf: 'center' },
   content: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 26 },
   emptyContent: { flexGrow: 1 },
   sectionHeader: { paddingTop: 12, paddingBottom: 7 },

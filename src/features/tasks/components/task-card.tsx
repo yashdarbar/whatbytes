@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 
 import type { Task, TaskPriority } from '../types';
@@ -16,7 +16,9 @@ type TaskCardProps = {
 
 export function TaskCard({ task, disabled, onOpen, onDelete, onComplete }: TaskCardProps) {
   const theme = useAppTheme();
+  const { fontScale, width } = useWindowDimensions();
   const swipeableRef = useRef<Swipeable>(null);
+  const useExpandedTitle = width < 360 || fontScale > 1.2;
   const priorityColors: Record<TaskPriority, string> = {
     low: theme.colors.priorityLow,
     medium: theme.colors.priorityMedium,
@@ -107,7 +109,7 @@ export function TaskCard({ task, disabled, onOpen, onDelete, onComplete }: TaskC
 
           <View style={styles.content}>
             <AppText
-              numberOfLines={1}
+              numberOfLines={useExpandedTitle ? 2 : 1}
               style={[styles.title, task.isCompleted && styles.completedText]}
             >
               {task.title}
@@ -119,7 +121,11 @@ export function TaskCard({ task, disabled, onOpen, onDelete, onComplete }: TaskC
           </View>
 
           <View style={[styles.priorityPill, { backgroundColor: `${priorityColor}22` }]}>
-            <AppText variant="label" style={[styles.priorityText, { color: priorityColor }]}>
+            <AppText
+              maxFontSizeMultiplier={1.3}
+              variant="label"
+              style={[styles.priorityText, { color: priorityColor }]}
+            >
               {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
             </AppText>
           </View>
@@ -153,7 +159,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 14, lineHeight: 20 },
   completedText: { opacity: 0.45, textDecorationLine: 'line-through' },
   date: { fontSize: 11, lineHeight: 16 },
-  priorityPill: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  priorityPill: { flexShrink: 0, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
   priorityText: { fontSize: 10, lineHeight: 14 },
   deleteAction: {
     width: 72,

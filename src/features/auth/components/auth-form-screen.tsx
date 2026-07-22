@@ -29,6 +29,7 @@ type AuthFormScreenProps = {
 const AUTH_ENTRANCE_DURATION = 400;
 const AUTH_EXIT_DURATION = 240;
 const AUTH_TRANSITION_OFFSET = 12;
+const AUTH_TRANSITION_MIN_OPACITY = 0.82;
 const AUTH_TRANSITION_EASING = Easing.inOut(Easing.cubic);
 
 export function AuthFormScreen({ mode }: AuthFormScreenProps) {
@@ -42,7 +43,7 @@ export function AuthFormScreen({ mode }: AuthFormScreenProps) {
   const completeOnboarding = useOnboardingStore((state) => state.completeOnboarding);
   const isLogin = mode === 'login';
   const activeMutation = isLogin ? signIn : signUp;
-  const screenOpacity = useRef(new Animated.Value(0)).current;
+  const screenOpacity = useRef(new Animated.Value(AUTH_TRANSITION_MIN_OPACITY)).current;
   const screenTranslateX = useRef(
     new Animated.Value(isLogin ? -AUTH_TRANSITION_OFFSET : AUTH_TRANSITION_OFFSET),
   ).current;
@@ -140,7 +141,7 @@ export function AuthFormScreen({ mode }: AuthFormScreenProps) {
       Animated.timing(screenOpacity, {
         duration: AUTH_EXIT_DURATION,
         easing: AUTH_TRANSITION_EASING,
-        toValue: 0,
+        toValue: AUTH_TRANSITION_MIN_OPACITY,
         useNativeDriver: true,
       }),
       Animated.timing(screenTranslateX, {

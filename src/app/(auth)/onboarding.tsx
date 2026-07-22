@@ -5,6 +5,7 @@ import {
   Animated,
   Easing,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -29,14 +30,16 @@ const MESSAGE_TRANSITION_EASING = Easing.inOut(Easing.cubic);
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const { fontScale, height, width } = useWindowDimensions();
   const completeOnboarding = useOnboardingStore((state) => state.completeOnboarding);
   const [activeMessageIndex, setActiveMessageIndex] = useState(0);
   const messageOpacity = useRef(new Animated.Value(1)).current;
   const messageAnimation = useRef<Animated.CompositeAnimation | null>(null);
   const reduceMotion = useRef(false);
-  const nextButtonDiameter = width * 0.95;
+  const isConstrainedLayout = height < 700 || fontScale > 1.15;
+  const nextButtonDiameter = Math.min(width * 0.95, height * 0.62);
   const nextIconSize = Math.min(Math.max(nextButtonDiameter * 0.22, 38), 48);
+  const constrainedBottomPadding = Math.max(96, nextButtonDiameter * 0.34);
 
   useEffect(() => {
     let isMounted = true;
@@ -104,7 +107,14 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
+      <ScrollView
+        bounces={isConstrainedLayout}
+        contentContainerStyle={[
+          styles.content,
+          isConstrainedLayout && { paddingBottom: constrainedBottomPadding },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.copyBlock}>
           <TaskMark />
           <Text accessibilityRole="header" style={styles.title}>
@@ -127,7 +137,7 @@ export default function OnboardingScreen() {
             ))}
           </View>
         </View>
-      </View>
+      </ScrollView>
 
       <Pressable
         accessibilityLabel="Continue to login"
@@ -156,7 +166,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, overflow: 'hidden', backgroundColor: '#FFFFFF' },
   content: {
-    flex: 1,
+    flexGrow: 1,
     width: '100%',
     maxWidth: 460,
     alignSelf: 'center',

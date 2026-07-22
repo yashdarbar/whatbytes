@@ -78,6 +78,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 50,
     paddingHorizontal: 16,
+    paddingVertical: 12,
     color: '#24324A',
     fontFamily: fontFamilies.regular,
     fontSize: 15,

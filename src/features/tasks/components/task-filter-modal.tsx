@@ -5,7 +5,9 @@ import {
   Easing,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -120,6 +122,7 @@ export function TaskFilterModal({
   onClose,
 }: TaskFilterModalProps) {
   const theme = useAppTheme();
+  const { height } = useWindowDimensions();
   const [draftPriority, setDraftPriority] = useState(priority);
   const [draftStatus, setDraftStatus] = useState(status);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -246,7 +249,13 @@ export function TaskFilterModal({
         >
           <SafeAreaView
             edges={['bottom']}
-            style={[styles.sheet, { backgroundColor: theme.colors.dashboardBackground }]}
+            style={[
+              styles.sheet,
+              {
+                maxHeight: height * 0.9,
+                backgroundColor: theme.colors.dashboardBackground,
+              },
+            ]}
           >
             <View style={styles.sheetHeader}>
               <AppText variant="title">Filter tasks</AppText>
@@ -255,35 +264,41 @@ export function TaskFilterModal({
               </Pressable>
             </View>
 
-            <View style={styles.group}>
-              <AppText variant="label">Status</AppText>
-              <View style={styles.options}>
-                {statuses.map((item) => (
-                  <FilterChip
-                    item={item}
-                    key={item.value}
-                    reduceMotion={reduceMotion}
-                    selected={item.value === draftStatus}
-                    onPress={setDraftStatus}
-                  />
-                ))}
+            <ScrollView
+              contentContainerStyle={styles.groups}
+              showsVerticalScrollIndicator={false}
+              style={styles.groupsScroll}
+            >
+              <View style={styles.group}>
+                <AppText variant="label">Status</AppText>
+                <View style={styles.options}>
+                  {statuses.map((item) => (
+                    <FilterChip
+                      item={item}
+                      key={item.value}
+                      reduceMotion={reduceMotion}
+                      selected={item.value === draftStatus}
+                      onPress={setDraftStatus}
+                    />
+                  ))}
+                </View>
               </View>
-            </View>
 
-            <View style={styles.group}>
-              <AppText variant="label">Priority</AppText>
-              <View style={styles.options}>
-                {priorities.map((item) => (
-                  <FilterChip
-                    item={item}
-                    key={item.value}
-                    reduceMotion={reduceMotion}
-                    selected={item.value === draftPriority}
-                    onPress={setDraftPriority}
-                  />
-                ))}
+              <View style={styles.group}>
+                <AppText variant="label">Priority</AppText>
+                <View style={styles.options}>
+                  {priorities.map((item) => (
+                    <FilterChip
+                      item={item}
+                      key={item.value}
+                      reduceMotion={reduceMotion}
+                      selected={item.value === draftPriority}
+                      onPress={setDraftPriority}
+                    />
+                  ))}
+                </View>
               </View>
-            </View>
+            </ScrollView>
 
             <View style={styles.actions}>
               <Pressable
@@ -323,6 +338,8 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(16,19,26,0.38)' },
   sheet: { gap: 24, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  groupsScroll: { flexShrink: 1 },
+  groups: { gap: 24 },
   group: { gap: 10 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
@@ -331,6 +348,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 15,
+    paddingVertical: 9,
   },
   chipLabel: { fontSize: 12 },
   actions: { flexDirection: 'row', gap: 12 },
@@ -341,6 +359,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 13,
     paddingHorizontal: 18,
+    paddingVertical: 13,
   },
   applyAction: { flex: 1, borderWidth: 0 },
 });

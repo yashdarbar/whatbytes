@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Switch,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { AppText, LayoutGrid, MoreHorizontal, Search, X } from '@/components/ui';
 import { useAppTheme, useThemeStore } from '@/theme';
@@ -24,17 +32,25 @@ export function DashboardHeader({
   onSignOut,
 }: DashboardHeaderProps) {
   const theme = useAppTheme();
+  const { width } = useWindowDimensions();
   const mode = useThemeStore((state) => state.mode);
   const setMode = useThemeStore((state) => state.setMode);
   const [menuVisible, setMenuVisible] = useState(false);
+  const useCompactToolbar = width < 360;
   const today = new Intl.DateTimeFormat(undefined, {
     day: 'numeric',
     month: 'long',
   }).format(new Date());
 
   return (
-    <View style={[styles.header, { backgroundColor: theme.colors.header }]}>
-      <View style={styles.toolbar}>
+    <View
+      style={[
+        styles.header,
+        useCompactToolbar && styles.headerCompact,
+        { backgroundColor: theme.colors.header },
+      ]}
+    >
+      <View style={[styles.toolbar, useCompactToolbar && styles.toolbarCompact]}>
         <Pressable
           accessibilityLabel="Open task filters"
           accessibilityRole="button"
@@ -60,6 +76,7 @@ export function DashboardHeader({
           {searchQuery ? (
             <Pressable
               accessibilityLabel="Clear search"
+              accessibilityRole="button"
               hitSlop={8}
               onPress={() => onSearchChange('')}
             >
@@ -99,7 +116,13 @@ export function DashboardHeader({
             onPress={() => setMenuVisible(false)}
             style={StyleSheet.absoluteFill}
           />
-          <View style={[styles.menu, theme.shadow, { backgroundColor: theme.colors.surface }]}>
+          <View
+            style={[
+              styles.menu,
+              theme.shadow,
+              { width: Math.min(220, width - 36), backgroundColor: theme.colors.surface },
+            ]}
+          >
             {email ? (
               <AppText muted numberOfLines={1} style={styles.email}>
                 {email}
@@ -138,7 +161,9 @@ export function DashboardHeader({
 
 const styles = StyleSheet.create({
   header: { gap: 18, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20 },
+  headerCompact: { paddingHorizontal: 14 },
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  toolbarCompact: { gap: 8 },
   iconButton: { width: 34, height: 38, alignItems: 'center', justifyContent: 'center' },
   filterBadge: {
     position: 'absolute',
@@ -153,15 +178,23 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     flex: 1,
-    height: 38,
+    minWidth: 160,
+    minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  searchInput: { flex: 1, padding: 0, fontFamily: 'Poppins_400Regular', fontSize: 13 },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    padding: 0,
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 13,
+  },
   today: { fontSize: 12, lineHeight: 18 },
   title: { color: '#FFFFFF', fontSize: 24, lineHeight: 31 },
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.18)' },
@@ -181,6 +214,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 8,
   },
-  menuAction: { minHeight: 46, justifyContent: 'center', paddingHorizontal: 16 },
+  menuAction: {
+    minHeight: 46,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
 });

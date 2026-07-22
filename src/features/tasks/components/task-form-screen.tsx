@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -34,12 +35,14 @@ function defaultDueDate() {
 export function TaskFormScreen({ task }: TaskFormScreenProps) {
   const router = useRouter();
   const theme = useAppTheme();
+  const { fontScale, width } = useWindowDimensions();
   const { user } = useAuthSession();
   const userId = user?.uid;
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const isMutating = createTask.isPending || updateTask.isPending;
   const requestError = createTask.errorMessage ?? updateTask.errorMessage;
+  const useStackedPriorityLayout = fontScale >= 1.5 || (width < 360 && fontScale > 1.2);
   const priorityColors: Record<TaskPriority, string> = {
     low: theme.colors.priorityLow,
     medium: theme.colors.priorityMedium,
@@ -108,6 +111,7 @@ export function TaskFormScreen({ task }: TaskFormScreenProps) {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          style={styles.scroll}
         >
           <View style={styles.header}>
             <Pressable
@@ -207,7 +211,9 @@ export function TaskFormScreen({ task }: TaskFormScreenProps) {
                   },
                 ]}
               >
-                <Calendar color={theme.colors.primary} size={18} />
+                <View style={styles.dateIcon}>
+                  <Calendar color={theme.colors.primary} size={18} />
+                </View>
                 <AppText style={styles.dateText}>{formattedDate}</AppText>
               </Pressable>
               {showDatePicker ? (
@@ -224,7 +230,9 @@ export function TaskFormScreen({ task }: TaskFormScreenProps) {
               <AppText muted variant="label" style={styles.fieldLabel}>
                 Priority
               </AppText>
-              <View style={styles.priorityRow}>
+              <View
+                style={[styles.priorityRow, useStackedPriorityLayout && styles.priorityRowStacked]}
+              >
                 {priorities.map((value) => {
                   const selected = priority === value;
                   const priorityColor = priorityColors[value];
@@ -232,10 +240,12 @@ export function TaskFormScreen({ task }: TaskFormScreenProps) {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityState={{ selected }}
+                      hitSlop={{ top: 3, right: 0, bottom: 3, left: 0 }}
                       key={value}
                       onPress={() => setPriority(value)}
                       style={[
                         styles.priorityButton,
+                        useStackedPriorityLayout && styles.priorityButtonStacked,
                         {
                           backgroundColor: selected
                             ? `${priorityColor}22`
@@ -286,6 +296,7 @@ export function TaskFormScreen({ task }: TaskFormScreenProps) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   safeArea: { flex: 1 },
+  scroll: { width: '100%', maxWidth: 640, alignSelf: 'center' },
   content: { gap: 18, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 36 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backButton: {
@@ -306,6 +317,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,
+    paddingVertical: 12,
     fontFamily: 'Poppins_400Regular',
     fontSize: 14,
     lineHeight: 20,
@@ -320,9 +332,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  dateText: { fontSize: 14, lineHeight: 20 },
+  dateIcon: { flexShrink: 0 },
+  dateText: { flex: 1, fontSize: 14, lineHeight: 20 },
   priorityRow: { flexDirection: 'row', gap: 8 },
+  priorityRowStacked: { flexDirection: 'column' },
   priorityButton: {
     flex: 1,
     minHeight: 38,
@@ -330,7 +345,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderRadius: 999,
+    paddingVertical: 9,
   },
+  priorityButtonStacked: { width: '100%', flexGrow: 0, flexShrink: 0, flexBasis: 'auto' },
   priorityText: { fontSize: 12, lineHeight: 18 },
   requestError: { fontSize: 12, lineHeight: 18 },
   submitButton: { minHeight: 46 },
