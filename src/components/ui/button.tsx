@@ -28,7 +28,10 @@ export function Button({ label, labelStyle, disabled, style, ...props }: ButtonP
         typeof style === 'function' ? style(state) : style,
       ]}
     >
-      <AppText variant="label" style={[{ color: theme.colors.onPrimary }, labelStyle]}>
+      <AppText
+        variant="label"
+        style={[styles.label, { color: theme.colors.onPrimary }, labelStyle]}
+      >
         {label}
       </AppText>
     </Pressable>
@@ -41,5 +44,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
+    paddingVertical: 12,
   },
+  label: { textAlign: 'center' },
 });
