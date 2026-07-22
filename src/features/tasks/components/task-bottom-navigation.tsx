@@ -58,8 +58,6 @@ export function TaskBottomNavigation({ value, onChange, onCreate }: TaskBottomNa
           theme.shadow,
           {
             backgroundColor: pressed ? theme.colors.primaryPressed : theme.colors.primary,
-            borderColor: theme.colors.background,
-            borderWidth: theme.isDark ? 5 : 0,
           },
         ]}
       >
