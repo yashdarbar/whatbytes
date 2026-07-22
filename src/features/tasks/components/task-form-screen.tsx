@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Task, TaskInput, TaskPriority } from '../types';
 import { validateTask } from '../validation';
-import { AppText, Button, Calendar } from '@/components/ui';
+import { AppText, Button, Calendar, ChevronLeft } from '@/components/ui';
 import { useAuthSession } from '@/features/auth';
 import { useCreateTask, useUpdateTask } from '@/features/tasks/hooks';
 import { useAppTheme } from '@/theme';
@@ -40,6 +40,11 @@ export function TaskFormScreen({ task }: TaskFormScreenProps) {
   const updateTask = useUpdateTask();
   const isMutating = createTask.isPending || updateTask.isPending;
   const requestError = createTask.errorMessage ?? updateTask.errorMessage;
+  const priorityColors: Record<TaskPriority, string> = {
+    low: theme.colors.priorityLow,
+    medium: theme.colors.priorityMedium,
+    high: theme.colors.priorityHigh,
+  };
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
   const [dueDate, setDueDate] = useState(task?.dueDate ?? defaultDueDate());
@@ -94,7 +99,7 @@ export function TaskFormScreen({ task }: TaskFormScreenProps) {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.dashboardBackground }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
@@ -105,128 +110,163 @@ export function TaskFormScreen({ task }: TaskFormScreenProps) {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={10}>
-              <AppText variant="label" style={{ color: theme.colors.primary }}>
-                Cancel
-              </AppText>
-            </Pressable>
-            <AppText variant="title">{task ? 'Edit task' : 'New task'}</AppText>
-            <View style={styles.headerSpacer} />
-          </View>
-
-          <View style={styles.field}>
-            <AppText variant="label">Title</AppText>
-            <TextInput
-              accessibilityLabel="Task title"
-              autoFocus
-              maxLength={120}
-              onChangeText={(value) => {
-                setTitle(value);
-                createTask.reset();
-                updateTask.reset();
-                if (errors.title) setErrors((current) => ({ ...current, title: undefined }));
-              }}
-              placeholder="What needs to be done?"
-              placeholderTextColor={theme.colors.placeholder}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.inputBackground,
-                  borderColor: errors.title ? theme.colors.danger : theme.colors.border,
-                  color: theme.colors.text,
-                },
-              ]}
-              value={title}
-            />
-            {errors.title ? (
-              <AppText style={{ color: theme.colors.danger }}>{errors.title}</AppText>
-            ) : null}
-          </View>
-
-          <View style={styles.field}>
-            <AppText variant="label">Description</AppText>
-            <TextInput
-              accessibilityLabel="Task description"
-              maxLength={2000}
-              multiline
-              onChangeText={(value) => {
-                setDescription(value);
-                createTask.reset();
-                updateTask.reset();
-              }}
-              placeholder="Add optional details"
-              placeholderTextColor={theme.colors.placeholder}
-              style={[
-                styles.input,
-                styles.description,
-                {
-                  backgroundColor: theme.colors.inputBackground,
-                  borderColor: theme.colors.border,
-                  color: theme.colors.text,
-                },
-              ]}
-              textAlignVertical="top"
-              value={description}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <AppText variant="label">Due date</AppText>
             <Pressable
-              accessibilityLabel="Choose due date"
+              accessibilityLabel="Back to tasks"
               accessibilityRole="button"
-              onPress={() => setShowDatePicker(true)}
+              hitSlop={8}
+              onPress={() => router.back()}
               style={[
-                styles.dateButton,
-                { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border },
+                styles.backButton,
+                { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
               ]}
             >
-              <Calendar color={theme.colors.primary} size={20} />
-              <AppText>{formattedDate}</AppText>
+              <ChevronLeft color={theme.colors.primary} size={20} />
             </Pressable>
-            {showDatePicker ? (
-              <DateTimePicker
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                mode="date"
-                onChange={handleDateChange}
-                value={dueDate}
-              />
-            ) : null}
+            <AppText variant="title" style={styles.headerTitle}>
+              {task ? 'Edit task' : 'New task'}
+            </AppText>
+            <View style={styles.backButtonPlaceholder} />
           </View>
 
-          <View style={styles.field}>
-            <AppText variant="label">Priority</AppText>
-            <View style={styles.priorityRow}>
-              {priorities.map((value) => {
-                const selected = priority === value;
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    key={value}
-                    onPress={() => setPriority(value)}
-                    style={[
-                      styles.priorityButton,
-                      {
-                        backgroundColor: selected ? theme.colors.primary : theme.colors.surface,
-                        borderColor: selected ? theme.colors.primary : theme.colors.border,
-                      },
-                    ]}
-                  >
-                    <AppText
-                      variant="label"
-                      style={{ color: selected ? theme.colors.onPrimary : theme.colors.text }}
+          <View style={[styles.formCard, theme.shadow, { backgroundColor: theme.colors.surface }]}>
+            <View style={styles.field}>
+              <AppText muted variant="label" style={styles.fieldLabel}>
+                Title
+              </AppText>
+              <TextInput
+                accessibilityLabel="Task title"
+                autoFocus
+                maxLength={120}
+                onChangeText={(value) => {
+                  setTitle(value);
+                  createTask.reset();
+                  updateTask.reset();
+                  if (errors.title) setErrors((current) => ({ ...current, title: undefined }));
+                }}
+                placeholder="What needs to be done?"
+                placeholderTextColor={theme.colors.placeholder}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.colors.inputBackground,
+                    borderColor: errors.title ? theme.colors.danger : theme.colors.border,
+                    color: theme.colors.text,
+                  },
+                ]}
+                value={title}
+              />
+              {errors.title ? (
+                <AppText style={[styles.errorText, { color: theme.colors.danger }]}>
+                  {errors.title}
+                </AppText>
+              ) : null}
+            </View>
+
+            <View style={styles.field}>
+              <AppText muted variant="label" style={styles.fieldLabel}>
+                Description
+              </AppText>
+              <TextInput
+                accessibilityLabel="Task description"
+                maxLength={2000}
+                multiline
+                onChangeText={(value) => {
+                  setDescription(value);
+                  createTask.reset();
+                  updateTask.reset();
+                }}
+                placeholder="Add optional details"
+                placeholderTextColor={theme.colors.placeholder}
+                style={[
+                  styles.input,
+                  styles.description,
+                  {
+                    backgroundColor: theme.colors.inputBackground,
+                    borderColor: theme.colors.border,
+                    color: theme.colors.text,
+                  },
+                ]}
+                textAlignVertical="top"
+                value={description}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <AppText muted variant="label" style={styles.fieldLabel}>
+                Due date
+              </AppText>
+              <Pressable
+                accessibilityLabel="Choose due date"
+                accessibilityRole="button"
+                onPress={() => setShowDatePicker(true)}
+                style={[
+                  styles.dateButton,
+                  {
+                    backgroundColor: theme.colors.inputBackground,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+              >
+                <Calendar color={theme.colors.primary} size={18} />
+                <AppText style={styles.dateText}>{formattedDate}</AppText>
+              </Pressable>
+              {showDatePicker ? (
+                <DateTimePicker
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  mode="date"
+                  onChange={handleDateChange}
+                  value={dueDate}
+                />
+              ) : null}
+            </View>
+
+            <View style={styles.field}>
+              <AppText muted variant="label" style={styles.fieldLabel}>
+                Priority
+              </AppText>
+              <View style={styles.priorityRow}>
+                {priorities.map((value) => {
+                  const selected = priority === value;
+                  const priorityColor = priorityColors[value];
+                  return (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      key={value}
+                      onPress={() => setPriority(value)}
+                      style={[
+                        styles.priorityButton,
+                        {
+                          backgroundColor: selected
+                            ? `${priorityColor}22`
+                            : theme.colors.inputBackground,
+                          borderColor: selected ? priorityColor : theme.colors.border,
+                        },
+                      ]}
                     >
-                      {value.charAt(0).toUpperCase() + value.slice(1)}
-                    </AppText>
-                  </Pressable>
-                );
-              })}
+                      <AppText
+                        variant="label"
+                        style={[
+                          styles.priorityText,
+                          {
+                            color: selected ? priorityColor : theme.colors.textMuted,
+                          },
+                        ]}
+                      >
+                        {value.charAt(0).toUpperCase() + value.slice(1)}
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           </View>
 
           {requestError ? (
-            <AppText accessibilityRole="alert" style={{ color: theme.colors.danger }}>
+            <AppText
+              accessibilityRole="alert"
+              style={[styles.requestError, { color: theme.colors.danger }]}
+            >
               {requestError}
             </AppText>
           ) : null}
@@ -235,6 +275,7 @@ export function TaskFormScreen({ task }: TaskFormScreenProps) {
             disabled={isMutating}
             label={isMutating ? 'Saving…' : task ? 'Save changes' : 'Create task'}
             onPress={handleSubmit}
+            style={styles.submitButton}
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -245,28 +286,52 @@ export function TaskFormScreen({ task }: TaskFormScreenProps) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   safeArea: { flex: 1 },
-  content: { gap: 24, padding: 24, paddingBottom: 48 },
+  content: { gap: 18, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 36 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerSpacer: { width: 46 },
-  field: { gap: 8 },
-  input: { minHeight: 52, borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, fontSize: 16 },
-  description: { minHeight: 120, paddingTop: 14 },
+  backButton: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+  },
+  backButtonPlaceholder: { width: 38 },
+  headerTitle: { fontSize: 18, lineHeight: 24 },
+  formCard: { gap: 17, borderRadius: 18, padding: 18 },
+  field: { gap: 6 },
+  fieldLabel: { fontSize: 12, lineHeight: 18 },
+  input: {
+    minHeight: 46,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  description: { minHeight: 94, paddingTop: 12, paddingBottom: 12 },
+  errorText: { fontSize: 11, lineHeight: 16 },
   dateButton: {
-    minHeight: 52,
+    minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 9,
     borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 16,
+    borderRadius: 12,
+    paddingHorizontal: 14,
   },
-  priorityRow: { flexDirection: 'row', gap: 10 },
+  dateText: { fontSize: 14, lineHeight: 20 },
+  priorityRow: { flexDirection: 'row', gap: 8 },
   priorityButton: {
     flex: 1,
-    minHeight: 46,
+    minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 999,
   },
+  priorityText: { fontSize: 12, lineHeight: 18 },
+  requestError: { fontSize: 12, lineHeight: 18 },
+  submitButton: { minHeight: 46 },
 });

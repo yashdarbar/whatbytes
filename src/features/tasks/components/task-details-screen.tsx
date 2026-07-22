@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Task, TaskPriority } from '../types';
-import { AppText, Button, ChevronLeft } from '@/components/ui';
+import { AppText, Button, Calendar, Check, ChevronLeft } from '@/components/ui';
 import { useAuthSession } from '@/features/auth';
 import { useDeleteTask } from '@/features/tasks/hooks';
 import { useAppTheme } from '@/theme';
@@ -51,58 +51,84 @@ export function TaskDetailsScreen({ task }: TaskDetailsScreenProps) {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.dashboardBackground }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable
             accessibilityLabel="Back to tasks"
             accessibilityRole="button"
-            hitSlop={10}
+            hitSlop={8}
             onPress={() => router.back()}
-            style={styles.backButton}
+            style={[
+              styles.backButton,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+            ]}
           >
-            <ChevronLeft color={theme.colors.primary} size={22} />
-            <AppText variant="label" style={{ color: theme.colors.primary }}>
-              Back
-            </AppText>
+            <ChevronLeft color={theme.colors.primary} size={20} />
           </Pressable>
-          <AppText variant="title">Task details</AppText>
-          <View style={styles.headerSpacer} />
+          <AppText variant="title" style={styles.headerTitle}>
+            Task details
+          </AppText>
+          <View style={styles.backButtonPlaceholder} />
         </View>
 
         <View
           accessibilityLabel="Completed task"
           style={[styles.completedBadge, { backgroundColor: `${theme.colors.success}1F` }]}
         >
-          <AppText variant="label" style={{ color: theme.colors.success }}>
+          <Check color={theme.colors.success} size={14} strokeWidth={2.5} />
+          <AppText variant="label" style={[styles.completedText, { color: theme.colors.success }]}>
             Completed
           </AppText>
         </View>
 
         <View style={[styles.detailsCard, theme.shadow, { backgroundColor: theme.colors.surface }]}>
-          <DetailRow label="Title" value={task.title} />
-          <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
-          <DetailRow
+          <DetailField label="Title" value={task.title} />
+          <DetailField
+            description
             label="Description"
             muted={!task.description}
             value={task.description || 'No description'}
           />
-          <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
-          <DetailRow label="Due date" value={dueDate} />
-          <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
-          <View style={styles.detailRow}>
-            <AppText muted style={styles.detailLabel}>
+          <View style={styles.field}>
+            <AppText muted variant="label" style={styles.fieldLabel}>
+              Due date
+            </AppText>
+            <View
+              style={[
+                styles.readOnlyField,
+                styles.dateField,
+                {
+                  backgroundColor: theme.colors.inputBackground,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+            >
+              <Calendar color={theme.colors.primary} size={18} />
+              <AppText selectable style={[styles.fieldValue, styles.dateValue]}>
+                {dueDate}
+              </AppText>
+            </View>
+          </View>
+          <View style={styles.field}>
+            <AppText muted variant="label" style={styles.fieldLabel}>
               Priority
             </AppText>
             <View
               style={[
                 styles.priorityBadge,
-                { backgroundColor: `${priorityColors[task.priority]}22` },
+                {
+                  backgroundColor: `${priorityColors[task.priority]}22`,
+                  borderColor: priorityColors[task.priority],
+                },
               ]}
             >
               <AppText
                 variant="label"
-                style={{ color: priorityColors[task.priority], textTransform: 'capitalize' }}
+                style={[
+                  styles.priorityText,
+                  { color: priorityColors[task.priority], textTransform: 'capitalize' },
+                ]}
               >
                 {task.priority}
               </AppText>
@@ -111,7 +137,10 @@ export function TaskDetailsScreen({ task }: TaskDetailsScreenProps) {
         </View>
 
         {deleteTask.errorMessage ? (
-          <AppText accessibilityRole="alert" style={{ color: theme.colors.danger }}>
+          <AppText
+            accessibilityRole="alert"
+            style={[styles.requestError, { color: theme.colors.danger }]}
+          >
             {deleteTask.errorMessage}
           </AppText>
         ) : null}
@@ -121,47 +150,94 @@ export function TaskDetailsScreen({ task }: TaskDetailsScreenProps) {
           label={deleteTask.isPending ? 'Deleting…' : 'Delete task'}
           labelStyle={{ color: '#FFFFFF' }}
           onPress={confirmDelete}
-          style={{ backgroundColor: theme.colors.danger }}
+          style={[styles.deleteButton, { backgroundColor: theme.colors.danger }]}
         />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function DetailRow({ label, muted, value }: { label: string; muted?: boolean; value: string }) {
+function DetailField({
+  description = false,
+  label,
+  muted,
+  value,
+}: {
+  description?: boolean;
+  label: string;
+  muted?: boolean;
+  value: string;
+}) {
+  const theme = useAppTheme();
+
   return (
-    <View style={styles.detailRow}>
-      <AppText muted style={styles.detailLabel}>
+    <View style={styles.field}>
+      <AppText muted variant="label" style={styles.fieldLabel}>
         {label}
       </AppText>
-      <AppText muted={muted} selectable style={styles.detailValue}>
-        {value}
-      </AppText>
+      <View
+        style={[
+          styles.readOnlyField,
+          description && styles.descriptionField,
+          { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border },
+        ]}
+      >
+        <AppText muted={muted} selectable style={styles.fieldValue}>
+          {value}
+        </AppText>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  content: { gap: 24, padding: 24, paddingBottom: 48 },
+  content: { gap: 18, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 36 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backButton: { flexDirection: 'row', alignItems: 'center' },
-  headerSpacer: { width: 54 },
+  backButton: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+  },
+  backButtonPlaceholder: { width: 38 },
+  headerTitle: { fontSize: 18, lineHeight: 24 },
   completedBadge: {
     alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  detailsCard: { gap: 18, borderRadius: 18, padding: 20 },
-  detailRow: { gap: 6 },
-  detailLabel: { fontSize: 12, lineHeight: 18 },
-  detailValue: { fontSize: 16, lineHeight: 24 },
-  divider: { height: StyleSheet.hairlineWidth },
-  priorityBadge: {
-    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingVertical: 6,
   },
+  completedText: { fontSize: 12, lineHeight: 18 },
+  detailsCard: { gap: 17, borderRadius: 18, padding: 18 },
+  field: { gap: 6 },
+  fieldLabel: { fontSize: 12, lineHeight: 18 },
+  readOnlyField: {
+    minHeight: 46,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  descriptionField: { minHeight: 94, justifyContent: 'flex-start' },
+  fieldValue: { fontSize: 14, lineHeight: 20 },
+  dateField: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  dateValue: { flex: 1 },
+  priorityBadge: {
+    alignSelf: 'flex-start',
+    minHeight: 38,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+  },
+  priorityText: { fontSize: 12, lineHeight: 18 },
+  requestError: { fontSize: 12, lineHeight: 18 },
+  deleteButton: { minHeight: 46 },
 });
