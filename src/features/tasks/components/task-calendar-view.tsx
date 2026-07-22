@@ -27,7 +27,7 @@ type TaskCalendarViewProps = {
   disabled?: boolean;
   onDelete: (task: Task) => void;
   onOpen: (task: Task) => void;
-  onComplete: (task: Task) => void;
+  onComplete: (task: Task) => Promise<void>;
   onMonthChange: (date: Date) => void;
   onSelectDate: (date: Date) => void;
 };

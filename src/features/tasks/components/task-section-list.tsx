@@ -13,7 +13,7 @@ type TaskSectionListProps = {
   disabled?: boolean;
   onDelete: (task: Task) => void;
   onOpen: (task: Task) => void;
-  onComplete: (task: Task) => void;
+  onComplete: (task: Task) => Promise<void>;
 };
 
 export function TaskSectionList({

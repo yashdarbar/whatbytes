@@ -158,9 +158,9 @@ export default function DashboardScreen() {
     router.push(`/tasks/${task.id}` as Href);
   }
 
-  function markComplete(task: Task) {
+  async function markComplete(task: Task) {
     if (!user || task.isCompleted) return;
-    completeTask.mutate({
+    await completeTask.mutateAsync({
       userId: user.uid,
       taskId: task.id,
     });
