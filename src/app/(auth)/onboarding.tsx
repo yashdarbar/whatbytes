@@ -1,5 +1,15 @@
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ArrowRight } from '@/components/ui/icons';
@@ -7,17 +17,90 @@ import { TaskMark } from '@/features/auth/components';
 import { useOnboardingStore } from '@/features/auth/store';
 import { fontFamilies } from '@/theme';
 
+const onboardingMessages = [
+  'Just a click away from planning your tasks.',
+  'Organize tasks by priority and stay ahead of every due date.',
+  'Track your progress and turn plans into completed goals.',
+];
+const MESSAGE_DISPLAY_DURATION = 3500;
+const MESSAGE_FADE_OUT_DURATION = 220;
+const MESSAGE_FADE_IN_DURATION = 420;
+const MESSAGE_TRANSITION_EASING = Easing.inOut(Easing.cubic);
+
 export default function OnboardingScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const completeOnboarding = useOnboardingStore((state) => state.completeOnboarding);
+  const [activeMessageIndex, setActiveMessageIndex] = useState(0);
+  const messageOpacity = useRef(new Animated.Value(1)).current;
+  const messageAnimation = useRef<Animated.CompositeAnimation | null>(null);
+  const reduceMotion = useRef(false);
+  const nextButtonDiameter = width * 0.95;
+  const nextIconSize = Math.min(Math.max(nextButtonDiameter * 0.22, 38), 48);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    function finishAnimation() {
+      messageAnimation.current?.stop();
+      messageOpacity.setValue(1);
+    }
+
+    function handleReduceMotionChanged(isEnabled: boolean) {
+      reduceMotion.current = isEnabled;
+      if (isEnabled) finishAnimation();
+    }
+
+    function showNextMessage() {
+      if (reduceMotion.current) {
+        setActiveMessageIndex((current) => (current + 1) % onboardingMessages.length);
+        return;
+      }
+
+      messageAnimation.current?.stop();
+      messageAnimation.current = Animated.timing(messageOpacity, {
+        duration: MESSAGE_FADE_OUT_DURATION,
+        easing: MESSAGE_TRANSITION_EASING,
+        toValue: 0,
+        useNativeDriver: true,
+      });
+      messageAnimation.current.start(({ finished }) => {
+        if (!finished || !isMounted) return;
+
+        setActiveMessageIndex((current) => (current + 1) % onboardingMessages.length);
+        messageOpacity.setValue(0);
+        messageAnimation.current = Animated.timing(messageOpacity, {
+          duration: MESSAGE_FADE_IN_DURATION,
+          easing: MESSAGE_TRANSITION_EASING,
+          toValue: 1,
+          useNativeDriver: true,
+        });
+        messageAnimation.current.start();
+      });
+    }
+
+    void AccessibilityInfo.isReduceMotionEnabled().then((isEnabled) => {
+      if (isMounted) handleReduceMotionChanged(isEnabled);
+    });
+
+    const reduceMotionSubscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      handleReduceMotionChanged,
+    );
+    const messageInterval = setInterval(showNextMessage, MESSAGE_DISPLAY_DURATION);
+
+    return () => {
+      isMounted = false;
+      clearInterval(messageInterval);
+      reduceMotionSubscription.remove();
+      messageAnimation.current?.stop();
+    };
+  }, [messageOpacity]);
 
   function continueToLogin() {
     completeOnboarding();
     router.replace('/(auth)/login');
   }
-
-  const footerWidth = Math.max(width * 1.8, 660);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -27,26 +110,44 @@ export default function OnboardingScreen() {
           <Text accessibilityRole="header" style={styles.title}>
             Get things done.
           </Text>
-          <Text style={styles.description}>Just a click away from planning your tasks.</Text>
-          <View accessibilityLabel="Page 3 of 3" style={styles.dots}>
-            <View style={styles.dot} />
-            <View style={styles.dot} />
-            <View style={[styles.dot, styles.activeDot]} />
+          <View style={styles.descriptionContainer}>
+            <Animated.Text style={[styles.description, { opacity: messageOpacity }]}>
+              {onboardingMessages[activeMessageIndex]}
+            </Animated.Text>
+          </View>
+          <View
+            accessibilityLabel={`Page ${activeMessageIndex + 1} of ${onboardingMessages.length}`}
+            style={styles.dots}
+          >
+            {onboardingMessages.map((message, index) => (
+              <View
+                key={message}
+                style={[styles.dot, index === activeMessageIndex ? styles.activeDot : null]}
+              />
+            ))}
           </View>
         </View>
       </View>
 
-      <View
-        pointerEvents="none"
-        style={[styles.curvedFooter, { width: footerWidth, left: -(footerWidth - width) / 2 }]}
-      />
       <Pressable
         accessibilityLabel="Continue to login"
         accessibilityRole="button"
         onPress={continueToLogin}
-        style={({ pressed }) => [styles.nextButton, pressed ? styles.nextButtonPressed : null]}
+        style={({ pressed }) => [
+          styles.nextButton,
+          {
+            right: -nextButtonDiameter * 0.42,
+            bottom: -nextButtonDiameter * 0.5,
+            width: nextButtonDiameter,
+            height: nextButtonDiameter,
+            paddingRight: nextButtonDiameter * 0.16,
+            paddingBottom: nextButtonDiameter * 0.4,
+            borderRadius: nextButtonDiameter / 2,
+          },
+          pressed ? styles.nextButtonPressed : null,
+        ]}
       >
-        <ArrowRight color="#FFFFFF" size={38} strokeWidth={2} />
+        <ArrowRight color="#FFFFFF" size={nextIconSize} strokeWidth={2} />
       </Pressable>
     </SafeAreaView>
   );
@@ -54,8 +155,15 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, overflow: 'hidden', backgroundColor: '#FFFFFF' },
-  content: { flex: 1, width: '100%', maxWidth: 460, alignSelf: 'center', paddingHorizontal: 34 },
-  copyBlock: { marginTop: '28%', width: '100%', maxWidth: 310 },
+  content: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 460,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 34,
+  },
+  copyBlock: { width: '100%', maxWidth: 310 },
   title: {
     marginTop: 18,
     color: '#24324A',
@@ -63,34 +171,20 @@ const styles = StyleSheet.create({
     fontSize: 25,
   },
   description: {
-    marginTop: 11,
     maxWidth: 250,
     color: '#A0A6B2',
     fontFamily: fontFamilies.regular,
     fontSize: 16,
     lineHeight: 24,
   },
+  descriptionContainer: { minHeight: 72, marginTop: 11 },
   dots: { marginTop: 20, flexDirection: 'row', gap: 9 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#E3E5EA' },
   activeDot: { backgroundColor: '#5C5CF4' },
-  curvedFooter: {
-    position: 'absolute',
-    bottom: -390,
-    height: 560,
-    borderRadius: 999,
-    backgroundColor: '#9290F2',
-  },
   nextButton: {
     position: 'absolute',
-    right: -32,
-    bottom: -28,
-    width: 138,
-    height: 138,
-    paddingRight: 30,
-    paddingBottom: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 69,
     backgroundColor: '#5C5CF4',
   },
   nextButtonPressed: { backgroundColor: '#4848D5' },
