@@ -1,7 +1,6 @@
-import { useColorScheme } from 'react-native';
-
 import { getTheme } from './tokens';
+import { useThemeStore } from './theme-store';
 
 export function useAppTheme() {
-  return getTheme(useColorScheme());
+  return getTheme(useThemeStore((state) => state.mode));
 }

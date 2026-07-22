@@ -1,5 +1,3 @@
-import type { ColorSchemeName } from 'react-native';
-
 export const fontFamilies = {
   regular: 'Poppins_400Regular',
   medium: 'Poppins_500Medium',
@@ -22,7 +20,8 @@ export const lightTheme = {
   ...shared,
   isDark: false,
   colors: {
-    background: '#F7F8FC',
+    background: '#FFFFFF',
+    dashboardBackground: '#F7F8FC',
     surface: '#FFFFFF',
     text: '#171A21',
     textMuted: '#616979',
@@ -55,6 +54,7 @@ export const darkTheme = {
   isDark: true,
   colors: {
     background: '#10131A',
+    dashboardBackground: '#10131A',
     surface: '#191D27',
     text: '#F6F7FA',
     textMuted: '#A8B0BF',
@@ -83,7 +83,8 @@ export const darkTheme = {
 } as const;
 
 export type AppTheme = typeof lightTheme | typeof darkTheme;
+export type ThemeMode = 'dark' | 'light';
 
-export function getTheme(colorScheme: ColorSchemeName): AppTheme {
-  return colorScheme === 'dark' ? darkTheme : lightTheme;
+export function getTheme(mode: ThemeMode): AppTheme {
+  return mode === 'dark' ? darkTheme : lightTheme;
 }

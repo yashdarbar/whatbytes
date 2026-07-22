@@ -15,12 +15,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthSessionBootstrap } from '@/features/auth/components/auth-session-bootstrap';
 import { queryClient } from '@/lib/query';
-import { useAppTheme } from '@/theme';
+import { useAppTheme, useThemeStore } from '@/theme';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function RootLayout() {
   const theme = useAppTheme();
+  const themeHasHydrated = useThemeStore((state) => state.hasHydrated);
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -29,12 +30,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    if ((fontsLoaded || fontError) && themeHasHydrated) {
       void SplashScreen.hideAsync().catch(() => undefined);
     }
-  }, [fontError, fontsLoaded]);
+  }, [fontError, fontsLoaded, themeHasHydrated]);
 
-  if (!fontsLoaded && !fontError) return null;
+  if ((!fontsLoaded && !fontError) || !themeHasHydrated) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
