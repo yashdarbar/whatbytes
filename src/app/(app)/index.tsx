@@ -1,7 +1,7 @@
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Alert, Animated, Easing, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui';
@@ -22,6 +22,12 @@ import {
   type Task,
 } from '@/features/tasks';
 import { useAppTheme } from '@/theme';
+
+const DASHBOARD_ENTRANCE_DURATION = 700;
+const DASHBOARD_ENTRANCE_OFFSET = 14;
+const VIEW_TRANSITION_DURATION = 520;
+const VIEW_TRANSITION_OFFSET = 10;
+const CALM_EASING = Easing.inOut(Easing.cubic);
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -48,6 +54,15 @@ export default function DashboardScreen() {
   const deleteTask = useDeleteTask();
   const completeTask = useCompleteTask();
   const [filtersVisible, setFiltersVisible] = useState(false);
+  const screenOpacity = useRef(new Animated.Value(0)).current;
+  const screenTranslateY = useRef(new Animated.Value(DASHBOARD_ENTRANCE_OFFSET)).current;
+  const contentOpacity = useRef(new Animated.Value(1)).current;
+  const contentTranslateY = useRef(new Animated.Value(0)).current;
+  const reduceMotion = useRef(false);
+  const selectedView = useRef(viewMode);
+  const screenAnimation = useRef<Animated.CompositeAnimation | null>(null);
+  const contentAnimation = useRef<Animated.CompositeAnimation | null>(null);
+  const contentAnimationFrame = useRef<number | null>(null);
   const isMutating = deleteTask.isPending || completeTask.isPending;
   const error =
     deleteTask.errorMessage ??
@@ -57,6 +72,65 @@ export default function DashboardScreen() {
     visibleTasksQuery.error?.message;
   const hasActiveFilters = priorityFilter !== 'all' || statusFilter !== 'all';
   const hasActiveQuery = hasActiveFilters || Boolean(searchQuery.trim());
+
+  useEffect(() => {
+    let isMounted = true;
+
+    function finishAnimations() {
+      screenAnimation.current?.stop();
+      contentAnimation.current?.stop();
+      screenOpacity.setValue(1);
+      screenTranslateY.setValue(0);
+      contentOpacity.setValue(1);
+      contentTranslateY.setValue(0);
+    }
+
+    function handleReduceMotionChanged(isEnabled: boolean) {
+      reduceMotion.current = isEnabled;
+      if (isEnabled) finishAnimations();
+    }
+
+    void AccessibilityInfo.isReduceMotionEnabled().then((isEnabled) => {
+      if (!isMounted) return;
+      reduceMotion.current = isEnabled;
+
+      if (isEnabled) {
+        finishAnimations();
+        return;
+      }
+
+      screenAnimation.current = Animated.parallel([
+        Animated.timing(screenOpacity, {
+          duration: DASHBOARD_ENTRANCE_DURATION,
+          easing: CALM_EASING,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.timing(screenTranslateY, {
+          duration: DASHBOARD_ENTRANCE_DURATION,
+          easing: CALM_EASING,
+          toValue: 0,
+          useNativeDriver: true,
+        }),
+      ]);
+      screenAnimation.current.start();
+    });
+
+    const reduceMotionSubscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      handleReduceMotionChanged,
+    );
+
+    return () => {
+      isMounted = false;
+      reduceMotionSubscription.remove();
+      screenAnimation.current?.stop();
+      contentAnimation.current?.stop();
+      if (contentAnimationFrame.current !== null) {
+        cancelAnimationFrame(contentAnimationFrame.current);
+      }
+    };
+  }, [contentOpacity, contentTranslateY, screenOpacity, screenTranslateY]);
 
   async function handleSignOut() {
     try {
@@ -92,64 +166,122 @@ export default function DashboardScreen() {
     });
   }
 
+  function changeView(nextView: typeof viewMode) {
+    if (nextView === selectedView.current) return;
+    selectedView.current = nextView;
+    contentAnimation.current?.stop();
+    if (contentAnimationFrame.current !== null) {
+      cancelAnimationFrame(contentAnimationFrame.current);
+      contentAnimationFrame.current = null;
+    }
+
+    if (reduceMotion.current) {
+      contentOpacity.setValue(1);
+      contentTranslateY.setValue(0);
+      setViewMode(nextView);
+      return;
+    }
+
+    contentOpacity.setValue(0);
+    contentTranslateY.setValue(VIEW_TRANSITION_OFFSET);
+    setViewMode(nextView);
+    contentAnimationFrame.current = requestAnimationFrame(() => {
+      contentAnimationFrame.current = null;
+      contentAnimation.current = Animated.parallel([
+        Animated.timing(contentOpacity, {
+          duration: VIEW_TRANSITION_DURATION,
+          easing: CALM_EASING,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentTranslateY, {
+          duration: VIEW_TRANSITION_DURATION,
+          easing: CALM_EASING,
+          toValue: 0,
+          useNativeDriver: true,
+        }),
+      ]);
+      contentAnimation.current.start();
+    });
+  }
+
   return (
     <SafeAreaView
       edges={['top', 'bottom']}
       style={[styles.safeArea, { backgroundColor: theme.colors.header }]}
     >
-      <DashboardHeader
-        email={user?.email}
-        hasActiveFilters={hasActiveFilters}
-        isSigningOut={signOut.isPending}
-        searchQuery={searchQuery}
-        onFilterPress={() => setFiltersVisible(true)}
-        onSearchChange={setSearchQuery}
-        onSignOut={() => void handleSignOut()}
-      />
-
-      <View style={[styles.body, { backgroundColor: theme.colors.dashboardBackground }]}>
-        {error ? (
-          <View style={[styles.errorBanner, { backgroundColor: `${theme.colors.danger}16` }]}>
-            <AppText accessibilityRole="alert" style={{ color: theme.colors.danger, fontSize: 12 }}>
-              {error}
-            </AppText>
-          </View>
-        ) : null}
-
-        <View style={styles.content}>
-          {viewMode === 'list' ? (
-            <TaskSectionList
-              disabled={isMutating}
-              hasActiveQuery={hasActiveQuery}
-              isLoading={sectionsQuery.isLoading}
-              sections={sectionsQuery.data}
-              onDelete={confirmDelete}
-              onOpen={openTask}
-              onComplete={markComplete}
-            />
-          ) : (
-            <TaskCalendarView
-              disabled={isMutating}
-              displayedMonth={displayedMonth}
-              isLoading={visibleTasksQuery.isLoading}
-              selectedDate={selectedDate}
-              selectedTasks={selectedTasksQuery.data}
-              tasks={visibleTasksQuery.data}
-              onDelete={confirmDelete}
-              onOpen={openTask}
-              onComplete={markComplete}
-              onMonthChange={setDisplayedMonth}
-              onSelectDate={setSelectedDate}
-            />
-          )}
-        </View>
-
-        <TaskBottomNavigation
-          value={viewMode}
-          onChange={setViewMode}
-          onCreate={() => router.push('/tasks/new' as Href)}
+      <Animated.View
+        needsOffscreenAlphaCompositing
+        renderToHardwareTextureAndroid
+        style={[
+          styles.dashboard,
+          { opacity: screenOpacity, transform: [{ translateY: screenTranslateY }] },
+        ]}
+      >
+        <DashboardHeader
+          email={user?.email}
+          hasActiveFilters={hasActiveFilters}
+          isSigningOut={signOut.isPending}
+          searchQuery={searchQuery}
+          onFilterPress={() => setFiltersVisible(true)}
+          onSearchChange={setSearchQuery}
+          onSignOut={() => void handleSignOut()}
         />
-      </View>
+
+        <View style={[styles.body, { backgroundColor: theme.colors.dashboardBackground }]}>
+          {error ? (
+            <View style={[styles.errorBanner, { backgroundColor: `${theme.colors.danger}16` }]}>
+              <AppText
+                accessibilityRole="alert"
+                style={{ color: theme.colors.danger, fontSize: 12 }}
+              >
+                {error}
+              </AppText>
+            </View>
+          ) : null}
+
+          <Animated.View
+            needsOffscreenAlphaCompositing
+            renderToHardwareTextureAndroid
+            style={[
+              styles.content,
+              { opacity: contentOpacity, transform: [{ translateY: contentTranslateY }] },
+            ]}
+          >
+            {viewMode === 'list' ? (
+              <TaskSectionList
+                disabled={isMutating}
+                hasActiveQuery={hasActiveQuery}
+                isLoading={sectionsQuery.isLoading}
+                sections={sectionsQuery.data}
+                onDelete={confirmDelete}
+                onOpen={openTask}
+                onComplete={markComplete}
+              />
+            ) : (
+              <TaskCalendarView
+                disabled={isMutating}
+                displayedMonth={displayedMonth}
+                isLoading={visibleTasksQuery.isLoading}
+                selectedDate={selectedDate}
+                selectedTasks={selectedTasksQuery.data}
+                tasks={visibleTasksQuery.data}
+                onDelete={confirmDelete}
+                onOpen={openTask}
+                onComplete={markComplete}
+                onMonthChange={setDisplayedMonth}
+                onSelectDate={setSelectedDate}
+              />
+            )}
+          </Animated.View>
+
+          <TaskBottomNavigation
+            value={viewMode}
+            onChange={changeView}
+            onCreate={() => router.push('/tasks/new' as Href)}
+          />
+        </View>
+      </Animated.View>
 
       <TaskFilterModal
         priority={priorityFilter}
@@ -168,6 +300,7 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
+  dashboard: { flex: 1 },
   body: { flex: 1, overflow: 'hidden' },
   content: { flex: 1 },
   errorBanner: { paddingHorizontal: 18, paddingVertical: 8 },
