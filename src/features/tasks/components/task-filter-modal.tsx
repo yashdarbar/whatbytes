@@ -1,5 +1,13 @@
-import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  Modal,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { TaskPriorityFilter, TaskStatusFilter } from '../types';
@@ -27,6 +35,79 @@ const statuses: { label: string; value: TaskStatusFilter }[] = [
   { label: 'Completed', value: 'completed' },
 ];
 
+const CHIP_TRANSITION_DURATION = 240;
+const CHIP_TRANSITION_EASING = Easing.inOut(Easing.cubic);
+
+type FilterChipProps<T extends string> = {
+  item: { label: string; value: T };
+  reduceMotion: boolean;
+  selected: boolean;
+  onPress: (value: T) => void;
+};
+
+function FilterChip<T extends string>({
+  item,
+  reduceMotion,
+  selected,
+  onPress,
+}: FilterChipProps<T>) {
+  const theme = useAppTheme();
+  const progress = useRef(new Animated.Value(selected ? 1 : 0)).current;
+  const animation = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    animation.current?.stop();
+
+    if (reduceMotion) {
+      progress.setValue(selected ? 1 : 0);
+      return;
+    }
+
+    animation.current = Animated.timing(progress, {
+      duration: CHIP_TRANSITION_DURATION,
+      easing: CHIP_TRANSITION_EASING,
+      toValue: selected ? 1 : 0,
+      useNativeDriver: false,
+    });
+    animation.current.start();
+
+    return () => animation.current?.stop();
+  }, [progress, reduceMotion, selected]);
+
+  const backgroundColor = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.colors.inputBackground, theme.colors.primary],
+  });
+  const borderColor = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.colors.border, theme.colors.primary],
+  });
+  const labelColor = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.colors.textMuted, '#FFFFFF'],
+  });
+  const scale = progress.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0.985, 1],
+  });
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={() => onPress(item.value)}
+    >
+      <Animated.View
+        style={[styles.chip, { backgroundColor, borderColor, transform: [{ scale }] }]}
+      >
+        <Animated.Text style={[theme.typography.label, styles.chipLabel, { color: labelColor }]}>
+          {item.label}
+        </Animated.Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 export function TaskFilterModal({
   priority,
   status,
@@ -37,6 +118,7 @@ export function TaskFilterModal({
   const theme = useAppTheme();
   const [draftPriority, setDraftPriority] = useState(priority);
   const [draftStatus, setDraftStatus] = useState(status);
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -45,41 +127,27 @@ export function TaskFilterModal({
     }
   }, [priority, status, visible]);
 
-  function renderOption<T extends string>(
-    item: { label: string; value: T },
-    selected: boolean,
-    onPress: (value: T) => void,
-  ) {
-    return (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ selected }}
-        key={item.value}
-        onPress={() => onPress(item.value)}
-        style={[
-          styles.chip,
-          {
-            backgroundColor: selected ? theme.colors.primary : theme.colors.inputBackground,
-            borderColor: selected ? theme.colors.primary : theme.colors.border,
-          },
-        ]}
-      >
-        <AppText
-          variant="label"
-          style={{ color: selected ? '#FFFFFF' : theme.colors.textMuted, fontSize: 12 }}
-        >
-          {item.label}
-        </AppText>
-      </Pressable>
-    );
-  }
+  useEffect(() => {
+    let isMounted = true;
+
+    void AccessibilityInfo.isReduceMotionEnabled().then((isEnabled) => {
+      if (isMounted) setReduceMotion(isEnabled);
+    });
+
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
+  }, []);
 
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
       <Pressable style={styles.overlay} onPress={onClose} />
       <SafeAreaView
         edges={['bottom']}
-        style={[styles.sheet, { backgroundColor: theme.colors.surface }]}
+        style={[styles.sheet, { backgroundColor: theme.colors.dashboardBackground }]}
       >
         <View style={styles.sheetHeader}>
           <AppText variant="title">Filter tasks</AppText>
@@ -91,16 +159,30 @@ export function TaskFilterModal({
         <View style={styles.group}>
           <AppText variant="label">Status</AppText>
           <View style={styles.options}>
-            {statuses.map((item) => renderOption(item, item.value === draftStatus, setDraftStatus))}
+            {statuses.map((item) => (
+              <FilterChip
+                item={item}
+                key={item.value}
+                reduceMotion={reduceMotion}
+                selected={item.value === draftStatus}
+                onPress={setDraftStatus}
+              />
+            ))}
           </View>
         </View>
 
         <View style={styles.group}>
           <AppText variant="label">Priority</AppText>
           <View style={styles.options}>
-            {priorities.map((item) =>
-              renderOption(item, item.value === draftPriority, setDraftPriority),
-            )}
+            {priorities.map((item) => (
+              <FilterChip
+                item={item}
+                key={item.value}
+                reduceMotion={reduceMotion}
+                selected={item.value === draftPriority}
+                onPress={setDraftPriority}
+              />
+            ))}
           </View>
         </View>
 
@@ -143,6 +225,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 15,
   },
+  chipLabel: { fontSize: 12 },
   actions: { flexDirection: 'row', gap: 12 },
   action: {
     minHeight: 48,
