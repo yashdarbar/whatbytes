@@ -34,101 +34,103 @@ export function TaskCard({ task, disabled, onOpen, onDelete, onComplete }: TaskC
   }
 
   return (
-    <Swipeable
-      ref={swipeableRef}
-      enabled={!disabled}
-      friction={2}
-      overshootRight={false}
-      rightThreshold={36}
-      renderRightActions={() => (
+    <View style={[styles.shadowContainer, theme.shadow, { backgroundColor: theme.colors.surface }]}>
+      <Swipeable
+        ref={swipeableRef}
+        enabled={!disabled}
+        friction={2}
+        overshootRight={false}
+        rightThreshold={36}
+        renderRightActions={() => (
+          <Pressable
+            accessibilityLabel={`Delete ${task.title}`}
+            accessibilityRole="button"
+            disabled={disabled}
+            onPress={requestDelete}
+            style={({ pressed }) => [
+              styles.deleteAction,
+              { backgroundColor: theme.colors.danger, opacity: pressed ? 0.82 : 1 },
+            ]}
+          >
+            <Trash color="#FFFFFF" size={22} />
+          </Pressable>
+        )}
+      >
         <Pressable
-          accessibilityLabel={`Delete ${task.title}`}
+          accessibilityActions={[{ name: 'activate' }, { name: 'delete', label: 'Delete task' }]}
+          accessibilityLabel={`Open ${task.title}`}
           accessibilityRole="button"
           disabled={disabled}
-          onPress={requestDelete}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === 'delete') requestDelete();
+            else if (event.nativeEvent.actionName === 'activate') onOpen();
+          }}
+          onPress={onOpen}
           style={({ pressed }) => [
-            styles.deleteAction,
-            { backgroundColor: theme.colors.danger, opacity: pressed ? 0.82 : 1 },
+            styles.card,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              opacity: pressed || disabled ? 0.72 : 1,
+            },
           ]}
         >
-          <Trash color="#FFFFFF" size={22} />
-        </Pressable>
-      )}
-    >
-      <Pressable
-        accessibilityActions={[{ name: 'activate' }, { name: 'delete', label: 'Delete task' }]}
-        accessibilityLabel={`Open ${task.title}`}
-        accessibilityRole="button"
-        disabled={disabled}
-        onAccessibilityAction={(event) => {
-          if (event.nativeEvent.actionName === 'delete') requestDelete();
-          else if (event.nativeEvent.actionName === 'activate') onOpen();
-        }}
-        onPress={onOpen}
-        style={({ pressed }) => [
-          styles.card,
-          theme.shadow,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
-            opacity: pressed || disabled ? 0.72 : 1,
-          },
-        ]}
-      >
-        {task.isCompleted ? (
-          <View
-            accessibilityLabel={`${task.title} completed`}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: true, disabled: true }}
-            style={[
-              styles.checkButton,
-              { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
-            ]}
-          >
-            <Check color="#FFFFFF" size={13} strokeWidth={3} />
+          {task.isCompleted ? (
+            <View
+              accessibilityLabel={`${task.title} completed`}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: true, disabled: true }}
+              style={[
+                styles.checkButton,
+                { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+              ]}
+            >
+              <Check color="#FFFFFF" size={13} strokeWidth={3} />
+            </View>
+          ) : (
+            <Pressable
+              accessibilityLabel={`Complete ${task.title}`}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: false }}
+              disabled={disabled}
+              hitSlop={10}
+              onPress={(event) => {
+                event.stopPropagation();
+                onComplete();
+              }}
+              style={[
+                styles.checkButton,
+                { backgroundColor: 'transparent', borderColor: theme.colors.primary },
+              ]}
+            />
+          )}
+
+          <View style={styles.content}>
+            <AppText
+              numberOfLines={1}
+              style={[styles.title, task.isCompleted && styles.completedText]}
+            >
+              {task.title}
+            </AppText>
+            <AppText muted numberOfLines={1} style={styles.date}>
+              {dueDate}
+              {task.description ? ` · ${task.description}` : ''}
+            </AppText>
           </View>
-        ) : (
-          <Pressable
-            accessibilityLabel={`Complete ${task.title}`}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: false }}
-            disabled={disabled}
-            hitSlop={10}
-            onPress={(event) => {
-              event.stopPropagation();
-              onComplete();
-            }}
-            style={[
-              styles.checkButton,
-              { backgroundColor: 'transparent', borderColor: theme.colors.primary },
-            ]}
-          />
-        )}
 
-        <View style={styles.content}>
-          <AppText
-            numberOfLines={1}
-            style={[styles.title, task.isCompleted && styles.completedText]}
-          >
-            {task.title}
-          </AppText>
-          <AppText muted numberOfLines={1} style={styles.date}>
-            {dueDate}
-            {task.description ? ` · ${task.description}` : ''}
-          </AppText>
-        </View>
-
-        <View style={[styles.priorityPill, { backgroundColor: `${priorityColor}22` }]}>
-          <AppText variant="label" style={[styles.priorityText, { color: priorityColor }]}>
-            {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-          </AppText>
-        </View>
-      </Pressable>
-    </Swipeable>
+          <View style={[styles.priorityPill, { backgroundColor: `${priorityColor}22` }]}>
+            <AppText variant="label" style={[styles.priorityText, { color: priorityColor }]}>
+              {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+            </AppText>
+          </View>
+        </Pressable>
+      </Swipeable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  shadowContainer: { borderRadius: 14 },
   card: {
     minHeight: 64,
     flexDirection: 'row',

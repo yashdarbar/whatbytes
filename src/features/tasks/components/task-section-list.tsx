@@ -34,7 +34,7 @@ export function TaskSectionList({
       keyExtractor={(task) => task.id}
       keyboardShouldPersistTaps="handled"
       renderSectionHeader={({ section }) => (
-        <View style={[styles.sectionHeader, { backgroundColor: theme.colors.background }]}>
+        <View style={[styles.sectionHeader, { backgroundColor: theme.colors.dashboardBackground }]}>
           <AppText variant="label" style={styles.sectionTitle}>
             {section.title}
           </AppText>
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   emptyContent: { flexGrow: 1 },
   sectionHeader: { paddingTop: 12, paddingBottom: 7 },
   sectionTitle: { fontSize: 13, lineHeight: 19 },
-  row: { marginBottom: 16 },
+  row: { marginBottom: 8 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 32 },
   emptyCopy: { maxWidth: 280, textAlign: 'center' },
 });
