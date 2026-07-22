@@ -25,6 +25,7 @@ type TaskCardProps = {
 const COMPLETION_DURATION = 360;
 const COMPLETION_ROLLBACK_DURATION = 240;
 const COMPLETION_EASING = Easing.out(Easing.cubic);
+const SWIPE_SPRING_OPTIONS = { bounciness: 4, speed: 18 };
 
 export function TaskCard({ task, disabled, onOpen, onDelete, onComplete }: TaskCardProps) {
   const theme = useAppTheme();
@@ -175,12 +176,14 @@ export function TaskCard({ task, disabled, onOpen, onDelete, onComplete }: TaskC
   return (
     <View style={[styles.shadowContainer, theme.shadow, { backgroundColor: theme.colors.surface }]}>
       <Swipeable
+        animationOptions={SWIPE_SPRING_OPTIONS}
         ref={swipeableRef}
         enabled={!cardDisabled}
         friction={2}
         leftThreshold={36}
-        overshootLeft={false}
-        overshootRight={false}
+        overshootFriction={8}
+        overshootLeft
+        overshootRight
         renderLeftActions={
           task.isCompleted
             ? undefined
