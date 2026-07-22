@@ -1,5 +1,14 @@
-import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { isSameDay, toDateKey } from '../task-view-utils';
 import type { Task } from '../types';
@@ -23,6 +32,9 @@ type TaskCalendarViewProps = {
 };
 
 const weekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const MONTH_TRANSITION_DURATION = 320;
+const MONTH_TRANSITION_OFFSET = 14;
+const MONTH_TRANSITION_EASING = Easing.inOut(Easing.cubic);
 
 export function TaskCalendarView({
   displayedMonth,
@@ -38,6 +50,12 @@ export function TaskCalendarView({
   onSelectDate,
 }: TaskCalendarViewProps) {
   const theme = useAppTheme();
+  const monthOpacity = useRef(new Animated.Value(1)).current;
+  const monthTranslateX = useRef(new Animated.Value(0)).current;
+  const monthAnimation = useRef<Animated.CompositeAnimation | null>(null);
+  const monthAnimationFrame = useRef<number | null>(null);
+  const displayedMonthRef = useRef(displayedMonth);
+  const reduceMotion = useRef(false);
   const today = new Date();
   const monthLabel = new Intl.DateTimeFormat(undefined, {
     month: 'long',
@@ -61,11 +79,90 @@ export function TaskCalendarView({
     ];
   }, [displayedMonth]);
 
+  useEffect(() => {
+    displayedMonthRef.current = displayedMonth;
+  }, [displayedMonth]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    function finishAnimation() {
+      monthAnimation.current?.stop();
+      monthOpacity.setValue(1);
+      monthTranslateX.setValue(0);
+    }
+
+    function handleReduceMotionChanged(isEnabled: boolean) {
+      reduceMotion.current = isEnabled;
+      if (isEnabled) finishAnimation();
+    }
+
+    void AccessibilityInfo.isReduceMotionEnabled().then((isEnabled) => {
+      if (!isMounted) return;
+      reduceMotion.current = isEnabled;
+      if (isEnabled) finishAnimation();
+    });
+
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      handleReduceMotionChanged,
+    );
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+      monthAnimation.current?.stop();
+      if (monthAnimationFrame.current !== null) {
+        cancelAnimationFrame(monthAnimationFrame.current);
+      }
+    };
+  }, [monthOpacity, monthTranslateX]);
+
   function moveMonth(offset: number) {
-    const next = new Date(displayedMonth.getFullYear(), displayedMonth.getMonth() + offset, 1);
+    const current = displayedMonthRef.current;
+    const next = new Date(current.getFullYear(), current.getMonth() + offset, 1);
+    displayedMonthRef.current = next;
+    monthAnimation.current?.stop();
+    if (monthAnimationFrame.current !== null) {
+      cancelAnimationFrame(monthAnimationFrame.current);
+      monthAnimationFrame.current = null;
+    }
+
     onMonthChange(next);
     onSelectDate(next);
+
+    if (reduceMotion.current) {
+      monthOpacity.setValue(1);
+      monthTranslateX.setValue(0);
+      return;
+    }
+
+    monthOpacity.setValue(0);
+    monthTranslateX.setValue(offset > 0 ? MONTH_TRANSITION_OFFSET : -MONTH_TRANSITION_OFFSET);
+    monthAnimationFrame.current = requestAnimationFrame(() => {
+      monthAnimationFrame.current = null;
+      monthAnimation.current = Animated.parallel([
+        Animated.timing(monthOpacity, {
+          duration: MONTH_TRANSITION_DURATION,
+          easing: MONTH_TRANSITION_EASING,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.timing(monthTranslateX, {
+          duration: MONTH_TRANSITION_DURATION,
+          easing: MONTH_TRANSITION_EASING,
+          toValue: 0,
+          useNativeDriver: true,
+        }),
+      ]);
+      monthAnimation.current.start();
+    });
   }
+
+  const monthTransitionStyle = {
+    opacity: monthOpacity,
+    transform: [{ translateX: monthTranslateX }],
+  };
 
   return (
     <ScrollView
@@ -78,7 +175,9 @@ export function TaskCalendarView({
           <Pressable accessibilityLabel="Previous month" hitSlop={9} onPress={() => moveMonth(-1)}>
             <ChevronLeft color={theme.colors.textMuted} size={22} />
           </Pressable>
-          <AppText variant="label">{monthLabel}</AppText>
+          <Animated.View style={monthTransitionStyle}>
+            <AppText variant="label">{monthLabel}</AppText>
+          </Animated.View>
           <Pressable accessibilityLabel="Next month" hitSlop={9} onPress={() => moveMonth(1)}>
             <ChevronRight color={theme.colors.textMuted} size={22} />
           </Pressable>
@@ -92,7 +191,7 @@ export function TaskCalendarView({
           ))}
         </View>
 
-        <View style={styles.daysGrid}>
+        <Animated.View style={[styles.daysGrid, monthTransitionStyle]}>
           {days.map((date, index) => {
             if (!date) return <View key={`empty-${index}`} style={styles.dayCell} />;
             const selected = isSameDay(date, selectedDate);
@@ -123,20 +222,15 @@ export function TaskCalendarView({
                   </AppText>
                 </View>
                 {hasTasks ? (
-                  <View
-                    style={[
-                      styles.taskDot,
-                      { backgroundColor: selected ? '#FFFFFF' : theme.colors.priorityHigh },
-                    ]}
-                  />
+                  <View style={[styles.taskDot, { backgroundColor: theme.colors.priorityHigh }]} />
                 ) : null}
               </Pressable>
             );
           })}
-        </View>
+        </Animated.View>
       </View>
 
-      <View style={styles.agenda}>
+      <Animated.View style={[styles.agenda, monthTransitionStyle]}>
         <AppText variant="label" style={styles.selectedLabel}>
           {selectedLabel}
         </AppText>
@@ -160,7 +254,7 @@ export function TaskCalendarView({
             </AppText>
           </View>
         )}
-      </View>
+      </Animated.View>
     </ScrollView>
   );
 }
@@ -172,7 +266,7 @@ const styles = StyleSheet.create({
   weekRow: { flexDirection: 'row' },
   weekday: { width: '14.2857%', textAlign: 'center', fontSize: 11 },
   daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  dayCell: { width: '14.2857%', height: 43, alignItems: 'center', justifyContent: 'center' },
+  dayCell: { width: '14.2857%', height: 46, alignItems: 'center', justifyContent: 'center' },
   dayCircle: {
     width: 31,
     height: 31,
@@ -181,7 +275,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   dayText: { fontSize: 12, lineHeight: 16 },
-  taskDot: { position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: 2 },
+  taskDot: { position: 'absolute', bottom: 1, width: 4, height: 4, borderRadius: 2 },
   agenda: { gap: 8 },
   selectedLabel: { marginBottom: 2, fontSize: 13 },
   noTasks: {
