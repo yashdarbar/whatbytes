@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Task Management",
-    "slug": "whatbytes",
+    "slug": "task-management",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -14,8 +14,9 @@
     },
     "android": {
       "package": "com.whatbytes.taskmanagement",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#EAF0FF",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -35,9 +36,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 180,
           "resizeMode": "contain",
-          "backgroundColor": "#F7F8FC",
+          "backgroundColor": "#FFFFFF",
           "dark": {
-            "backgroundColor": "#10131A"
+            "backgroundColor": "#FFFFFF"
           }
         }
       ],
@@ -45,6 +46,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d5a2d147-e681-46ec-a814-2228039781f0"
+      }
+    },
+    "owner": "nikhil1998"
   }
 }
