@@ -4,6 +4,10 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuthSession } from '@/features/auth';
 import { useTaskRealtimeSync } from '@/features/tasks';
 
+/**
+ * Protects every route in the authenticated group and starts the task listener
+ * only for the active Firebase user.
+ */
 export default function AppLayout() {
   const { user, isAuthenticated, isAuthReady } = useAuthSession();
   useTaskRealtimeSync(user?.uid);

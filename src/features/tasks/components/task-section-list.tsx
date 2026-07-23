@@ -16,6 +16,7 @@ type TaskSectionListProps = {
   onComplete: (task: Task) => Promise<void>;
 };
 
+/** Renders due-date groups using a virtualized list for small and large task sets. */
 export function TaskSectionList({
   sections,
   isLoading,

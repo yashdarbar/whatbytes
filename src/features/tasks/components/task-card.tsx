@@ -27,6 +27,10 @@ const COMPLETION_ROLLBACK_DURATION = 240;
 const COMPLETION_EASING = Easing.out(Easing.cubic);
 const SWIPE_SPRING_OPTIONS = { bounciness: 4, speed: 18 };
 
+/**
+ * Displays a task with swipe actions and an optimistic completion animation.
+ * The card rolls its visual state back if the Firestore mutation fails.
+ */
 export function TaskCard({ task, disabled, onOpen, onDelete, onComplete }: TaskCardProps) {
   const theme = useAppTheme();
   const { fontScale, width } = useWindowDimensions();
@@ -119,8 +123,10 @@ export function TaskCard({ task, disabled, onOpen, onDelete, onComplete }: TaskC
     }
 
     try {
+      // Delay the write until the local celebration finishes to avoid animating every list item.
       await onComplete();
     } catch {
+      // Restore the interactive, incomplete state when the backend rejects the write.
       if (!isMounted.current) return;
       setShowCompletedStyle(false);
       completionAnimation.current = Animated.parallel([

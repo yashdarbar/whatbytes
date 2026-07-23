@@ -28,6 +28,10 @@ const MESSAGE_FADE_OUT_DURATION = 220;
 const MESSAGE_FADE_IN_DURATION = 420;
 const MESSAGE_TRANSITION_EASING = Easing.inOut(Easing.cubic);
 
+/**
+ * First-run introduction with rotating supporting copy. Completion is persisted
+ * so returning signed-out users can proceed directly to login.
+ */
 export default function OnboardingScreen() {
   const router = useRouter();
   const { fontScale, height, width } = useWindowDimensions();

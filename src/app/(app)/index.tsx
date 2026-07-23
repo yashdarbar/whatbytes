@@ -29,6 +29,10 @@ const VIEW_TRANSITION_DURATION = 520;
 const VIEW_TRANSITION_OFFSET = 10;
 const CALM_EASING = Easing.inOut(Easing.cubic);
 
+/**
+ * Coordinates the task list, calendar, filters, task mutations, and the calm
+ * transitions between the dashboard's two views.
+ */
 export default function DashboardScreen() {
   const router = useRouter();
   const theme = useAppTheme();
@@ -86,6 +90,7 @@ export default function DashboardScreen() {
     }
 
     function handleReduceMotionChanged(isEnabled: boolean) {
+      // Accessibility preference takes effect immediately, including mid-animation.
       reduceMotion.current = isEnabled;
       if (isEnabled) finishAnimations();
     }

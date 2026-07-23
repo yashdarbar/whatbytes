@@ -10,6 +10,7 @@ type OnboardingState = {
   completeOnboarding: () => void;
 };
 
+/** Persists only whether onboarding was completed; hydration remains runtime state. */
 export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set) => ({

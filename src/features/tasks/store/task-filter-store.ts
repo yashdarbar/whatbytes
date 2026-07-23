@@ -15,6 +15,10 @@ type TaskFilterState = {
   resetViewState: () => void;
 };
 
+/**
+ * Holds dashboard-only state. This remains separate from TanStack Query because
+ * filters and view mode are not backend data and do not need persistence.
+ */
 export const useTaskFilterStore = create<TaskFilterState>((set) => ({
   priorityFilter: 'all',
   statusFilter: 'all',

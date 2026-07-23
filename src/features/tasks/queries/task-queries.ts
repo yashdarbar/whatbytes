@@ -18,10 +18,12 @@ import {
 import type { Task, TaskInput } from '../types';
 import { firestore } from '@/lib/firebase';
 
+// Server timestamps may briefly be unresolved in local snapshots after a write.
 function timestampToDate(value: unknown): Date {
   return value instanceof Timestamp ? value.toDate() : new Date();
 }
 
+/** Converts Firestore's document shape into the Date-based model used by the UI. */
 function mapTask(snapshot: QueryDocumentSnapshot<DocumentData>): Task {
   const data = snapshot.data();
   return {
@@ -38,14 +40,17 @@ function mapTask(snapshot: QueryDocumentSnapshot<DocumentData>): Task {
 }
 
 function createTasksQuery(userId: string) {
+  // Tasks live below the user document, which keeps reads scoped to their owner.
   return query(collection(firestore, 'users', userId, 'tasks'), orderBy('dueDate', 'asc'));
 }
 
+/** Loads the initial due-date-sorted task list for a user. */
 export async function getTasks(userId: string): Promise<Task[]> {
   const snapshot = await getDocs(createTasksQuery(userId));
   return snapshot.docs.map(mapTask);
 }
 
+/** Streams task changes so the query cache stays current across devices. */
 export function subscribeToTasks(
   userId: string,
   onTasks: (tasks: Task[]) => void,
@@ -58,6 +63,7 @@ export function subscribeToTasks(
   );
 }
 
+/** Creates an incomplete task with server-owned audit timestamps. */
 export async function createTask(userId: string, input: TaskInput): Promise<void> {
   await addDoc(collection(firestore, 'users', userId, 'tasks'), {
     userId,
@@ -71,6 +77,7 @@ export async function createTask(userId: string, input: TaskInput): Promise<void
   });
 }
 
+/** Updates editable fields; completed-task protection is also enforced by Firestore rules. */
 export async function updateTask(userId: string, taskId: string, input: TaskInput): Promise<void> {
   await updateDoc(doc(firestore, 'users', userId, 'tasks', taskId), {
     title: input.title.trim(),
@@ -81,10 +88,12 @@ export async function updateTask(userId: string, taskId: string, input: TaskInpu
   });
 }
 
+/** Permanently removes a task owned by the authenticated user. */
 export async function deleteTask(userId: string, taskId: string): Promise<void> {
   await deleteDoc(doc(firestore, 'users', userId, 'tasks', taskId));
 }
 
+/** Performs the one-way incomplete-to-complete transition. */
 export async function completeTask(userId: string, taskId: string): Promise<void> {
   await updateDoc(doc(firestore, 'users', userId, 'tasks', taskId), {
     isCompleted: true,

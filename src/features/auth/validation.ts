@@ -5,6 +5,7 @@ export type AuthFormErrors = {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Performs immediate client validation; Firebase remains the final authority. */
 export function validateAuthForm(email: string, password: string): AuthFormErrors {
   const errors: AuthFormErrors = {};
 

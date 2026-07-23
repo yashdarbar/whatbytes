@@ -32,6 +32,10 @@ const AUTH_TRANSITION_OFFSET = 12;
 const AUTH_TRANSITION_MIN_OPACITY = 0.82;
 const AUTH_TRANSITION_EASING = Easing.inOut(Easing.cubic);
 
+/**
+ * Shared login/sign-up form. Both modes stay in one component so field state
+ * and the animated transition do not flash through a route remount.
+ */
 export function AuthFormScreen({ mode }: AuthFormScreenProps) {
   const router = useRouter();
   const passwordRef = useRef<TextInput>(null);
@@ -121,6 +125,7 @@ export function AuthFormScreen({ mode }: AuthFormScreenProps) {
 
     try {
       await activeMutation.mutateAsync({ email, password });
+      // Successful authentication also suppresses onboarding on later launches.
       completeOnboarding();
       router.replace('/(app)');
     } catch {

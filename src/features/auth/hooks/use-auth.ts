@@ -16,6 +16,7 @@ export const authQueryKeys = {
   session: ['auth', 'session'] as const,
 };
 
+/** Exposes the cached Firebase session in a routing-friendly shape. */
 export function useAuthSession() {
   const query = useQuery({
     queryKey: authQueryKeys.session,
@@ -31,6 +32,10 @@ export function useAuthSession() {
   };
 }
 
+/**
+ * Bridges Firebase's auth observer into TanStack Query, making the query cache
+ * the single source of backend session state for the component tree.
+ */
 export function useAuthSessionSync() {
   const queryClient = useQueryClient();
 
@@ -59,10 +64,12 @@ function useAuthMutation(
   };
 }
 
+/** Signs in with email/password and updates the cached session on success. */
 export function useSignIn() {
   return useAuthMutation(({ email, password }) => signInWithEmail(email, password));
 }
 
+/** Registers a user and immediately stores the resulting authenticated session. */
 export function useSignUp() {
   return useAuthMutation(({ email, password }) => signUpWithEmail(email, password));
 }
@@ -73,6 +80,7 @@ export function useSignOut() {
     mutationFn: signOut,
     onSuccess: () => {
       queryClient.setQueryData(authQueryKeys.session, null);
+      // Prevent one account's tasks from briefly appearing after another account signs in.
       queryClient.removeQueries({ queryKey: ['tasks'] });
     },
   });

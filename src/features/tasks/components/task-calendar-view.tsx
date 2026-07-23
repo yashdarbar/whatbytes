@@ -45,6 +45,10 @@ const SWIPE_COMMIT_VELOCITY = 650;
 const SWIPE_MAX_OFFSET = 110;
 const SWIPE_COMMIT_OFFSET = 28;
 
+/**
+ * Renders a responsive month grid and the tasks for its selected day. Month
+ * changes can be triggered by arrows or a horizontal swipe.
+ */
 export function TaskCalendarView({
   displayedMonth,
   selectedDate,
@@ -92,6 +96,7 @@ export function TaskCalendarView({
     const month = displayedMonth.getMonth();
     const leading = new Date(year, month, 1).getDay();
     const dayCount = new Date(year, month + 1, 0).getDate();
+    // Null cells align day one beneath the correct weekday heading.
     return [
       ...Array.from({ length: leading }, () => null),
       ...Array.from({ length: dayCount }, (_, index) => new Date(year, month, index + 1)),
@@ -246,6 +251,7 @@ export function TaskCalendarView({
   }
 
   const swipeThreshold = Math.min(88, width * 0.2);
+  // Vertical drift fails the gesture so scrolling the surrounding view remains natural.
   const monthSwipeGesture = Gesture.Pan()
     .runOnJS(true)
     .activeOffsetX([-SWIPE_ACTIVATION_DISTANCE, SWIPE_ACTIVATION_DISTANCE])
@@ -267,6 +273,7 @@ export function TaskCalendarView({
         Math.abs(translationX) >= swipeThreshold || Math.abs(velocityX) >= SWIPE_COMMIT_VELOCITY;
 
       if (!shouldChangeMonth) {
+        // An incomplete gesture springs calmly back to the current month.
         swipeTransitioning.current = true;
         resetSwipe();
         return;

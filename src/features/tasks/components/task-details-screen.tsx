@@ -12,6 +12,10 @@ type TaskDetailsScreenProps = {
   task: Task;
 };
 
+/**
+ * Read-only presentation for completed tasks. The edit route selects this
+ * screen once a task is complete, matching the backend's one-way state rule.
+ */
 export function TaskDetailsScreen({ task }: TaskDetailsScreenProps) {
   const router = useRouter();
   const theme = useAppTheme();

@@ -5,6 +5,10 @@ import { Check } from '@/components/ui/icons';
 
 const AMBIENT_EASING = Easing.inOut(Easing.cubic);
 
+/**
+ * Animated brand mark used by authentication and startup surfaces. Ambient
+ * motion is disabled when the operating system requests reduced motion.
+ */
 export function TaskMark() {
   const motion = useRef({
     tile: new Animated.Value(0),

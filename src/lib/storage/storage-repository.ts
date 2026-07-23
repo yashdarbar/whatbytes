@@ -6,6 +6,10 @@ export interface StorageRepository<T> {
   remove(): Promise<void>;
 }
 
+/**
+ * Small typed wrapper around AsyncStorage for feature state that does not
+ * belong in Firebase or TanStack Query.
+ */
 export class AsyncStorageRepository<T> implements StorageRepository<T> {
   constructor(private readonly key: string) {}
 
