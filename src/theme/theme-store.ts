@@ -13,6 +13,7 @@ type ThemeState = {
   toggleMode: () => void;
 };
 
+/** Persists the selected theme while exposing hydration state to the splash gate. */
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
@@ -27,6 +28,7 @@ export const useThemeStore = create<ThemeState>()(
       storage: createJSONStorage(() => zustandStorage),
       partialize: ({ mode }) => ({ mode }),
       onRehydrateStorage: () => (state) => {
+        // Hydration must finish even when no previously persisted state exists.
         if (state) {
           state.setHasHydrated(true);
           return;

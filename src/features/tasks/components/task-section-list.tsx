@@ -13,9 +13,10 @@ type TaskSectionListProps = {
   disabled?: boolean;
   onDelete: (task: Task) => void;
   onOpen: (task: Task) => void;
-  onComplete: (task: Task) => void;
+  onComplete: (task: Task) => Promise<void>;
 };
 
+/** Renders due-date groups using a virtualized list for small and large task sets. */
 export function TaskSectionList({
   sections,
   isLoading,

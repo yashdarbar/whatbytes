@@ -32,6 +32,10 @@ function defaultDueDate() {
   return date;
 }
 
+/**
+ * Shared create/edit form. Passing a task switches the mutation and initial
+ * values while retaining the same validation and responsive layout.
+ */
 export function TaskFormScreen({ task }: TaskFormScreenProps) {
   const router = useRouter();
   const theme = useAppTheme();
@@ -43,6 +47,7 @@ export function TaskFormScreen({ task }: TaskFormScreenProps) {
   const isMutating = createTask.isPending || updateTask.isPending;
   const requestError = createTask.errorMessage ?? updateTask.errorMessage;
   const useStackedPriorityLayout = fontScale >= 1.5 || (width < 360 && fontScale > 1.2);
+  // Large accessibility text needs a vertical layout to prevent clipped priority labels.
   const priorityColors: Record<TaskPriority, string> = {
     low: theme.colors.priorityLow,
     medium: theme.colors.priorityMedium,

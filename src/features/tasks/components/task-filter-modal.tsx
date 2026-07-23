@@ -114,6 +114,10 @@ function FilterChip<T extends string>({
   );
 }
 
+/**
+ * Keeps filter edits as drafts until Apply is pressed and retains the modal
+ * in the tree long enough for its close animation to finish.
+ */
 export function TaskFilterModal({
   priority,
   status,
@@ -190,6 +194,7 @@ export function TaskFilterModal({
     }
 
     if (visible) {
+      // Render first, then animate on the next frame so the entrance is visible.
       setIsRendered(true);
       transitionProgress.setValue(0);
       transitionFrame.current = requestAnimationFrame(() => {
@@ -212,6 +217,7 @@ export function TaskFilterModal({
       useNativeDriver: true,
     });
     transitionAnimation.current.start(({ finished }) => {
+      // Unmounting after the animation prevents the sheet from disappearing abruptly.
       if (finished && !visibleRef.current) setIsRendered(false);
     });
   }, [transitionProgress, visible]);

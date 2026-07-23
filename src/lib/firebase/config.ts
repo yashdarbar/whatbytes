@@ -16,6 +16,10 @@ const config: FirebaseEnvironment = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID ?? '',
 };
 
+/**
+ * Returns the Firebase web configuration injected by Expo. Failing fast here
+ * makes missing EAS environment variables visible during application startup.
+ */
 export function getFirebaseConfig(): FirebaseEnvironment {
   const missing = Object.entries(config)
     .filter(([, value]) => value.length === 0)

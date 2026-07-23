@@ -17,8 +17,13 @@ import { AuthSessionBootstrap } from '@/features/auth/components/auth-session-bo
 import { queryClient } from '@/lib/query';
 import { useAppTheme, useThemeStore } from '@/theme';
 
+// Keep the native splash visible until both persisted UI state and custom fonts are ready.
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
+/**
+ * Composes the application-wide providers and controls the handoff from the
+ * native splash screen to Expo Router.
+ */
 export default function RootLayout() {
   const theme = useAppTheme();
   const themeHasHydrated = useThemeStore((state) => state.hasHydrated);
@@ -30,6 +35,7 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    // A font error must not leave the user permanently stuck on the splash screen.
     if ((fontsLoaded || fontError) && themeHasHydrated) {
       void SplashScreen.hideAsync().catch(() => undefined);
     }

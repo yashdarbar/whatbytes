@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useAuthSession, useOnboardingStore } from '@/features/auth';
 
+/** Chooses the first route only after persisted onboarding and auth state are known. */
 export default function EntryScreen() {
   const hasHydrated = useOnboardingStore((state) => state.hasHydrated);
   const hasSeenOnboarding = useOnboardingStore((state) => state.hasSeenOnboarding);

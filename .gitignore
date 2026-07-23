@@ -9,10 +9,12 @@ coverage/
 # Local environment and secrets
 .env
 .env.*
+!.env.example
 
 # Documentation
 *.md
 *.mdx
+!README.md
 
 # Assets
 assets/UI/

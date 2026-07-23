@@ -12,6 +12,10 @@ type TaskDetailsScreenProps = {
   task: Task;
 };
 
+/**
+ * Read-only presentation for completed tasks. The edit route selects this
+ * screen once a task is complete, matching the backend's one-way state rule.
+ */
 export function TaskDetailsScreen({ task }: TaskDetailsScreenProps) {
   const router = useRouter();
   const theme = useAppTheme();
@@ -156,7 +160,7 @@ export function TaskDetailsScreen({ task }: TaskDetailsScreenProps) {
           label={deleteTask.isPending ? 'Deleting…' : 'Delete task'}
           labelStyle={{ color: '#FFFFFF' }}
           onPress={confirmDelete}
-          style={[styles.deleteButton, { backgroundColor: theme.colors.danger }]}
+          style={[styles.deleteButton, { backgroundColor: theme.colors.deleteAction }]}
         />
       </ScrollView>
     </SafeAreaView>

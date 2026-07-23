@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { isSameDay, toDateKey } from '../task-view-utils';
 import type { Task } from '../types';
@@ -27,7 +28,7 @@ type TaskCalendarViewProps = {
   disabled?: boolean;
   onDelete: (task: Task) => void;
   onOpen: (task: Task) => void;
-  onComplete: (task: Task) => void;
+  onComplete: (task: Task) => Promise<void>;
   onMonthChange: (date: Date) => void;
   onSelectDate: (date: Date) => void;
 };
@@ -39,7 +40,15 @@ const MONTH_TRANSITION_EASING = Easing.inOut(Easing.cubic);
 const CALENDAR_HORIZONTAL_INSET = 68;
 const MAX_DAY_CIRCLE_SIZE = 31;
 const MIN_DAY_CIRCLE_SIZE = 27;
+const SWIPE_ACTIVATION_DISTANCE = 12;
+const SWIPE_COMMIT_VELOCITY = 650;
+const SWIPE_MAX_OFFSET = 110;
+const SWIPE_COMMIT_OFFSET = 28;
 
+/**
+ * Renders a responsive month grid and the tasks for its selected day. Month
+ * changes can be triggered by arrows or a horizontal swipe.
+ */
 export function TaskCalendarView({
   displayedMonth,
   selectedDate,
@@ -58,9 +67,13 @@ export function TaskCalendarView({
   const monthOpacity = useRef(new Animated.Value(1)).current;
   const monthTranslateX = useRef(new Animated.Value(0)).current;
   const monthAnimation = useRef<Animated.CompositeAnimation | null>(null);
+  const swipeAnimation = useRef<Animated.CompositeAnimation | null>(null);
   const monthAnimationFrame = useRef<number | null>(null);
   const displayedMonthRef = useRef(displayedMonth);
+  const monthTransitioning = useRef(false);
+  const swipeTransitioning = useRef(false);
   const reduceMotion = useRef(false);
+  const swipeTranslateX = useRef(new Animated.Value(0)).current;
   const today = new Date();
   const monthLabel = new Intl.DateTimeFormat(undefined, {
     month: 'long',
@@ -83,6 +96,7 @@ export function TaskCalendarView({
     const month = displayedMonth.getMonth();
     const leading = new Date(year, month, 1).getDay();
     const dayCount = new Date(year, month + 1, 0).getDate();
+    // Null cells align day one beneath the correct weekday heading.
     return [
       ...Array.from({ length: leading }, () => null),
       ...Array.from({ length: dayCount }, (_, index) => new Date(year, month, index + 1)),
@@ -98,8 +112,12 @@ export function TaskCalendarView({
 
     function finishAnimation() {
       monthAnimation.current?.stop();
+      swipeAnimation.current?.stop();
       monthOpacity.setValue(1);
       monthTranslateX.setValue(0);
+      swipeTranslateX.setValue(0);
+      monthTransitioning.current = false;
+      swipeTransitioning.current = false;
     }
 
     function handleReduceMotionChanged(isEnabled: boolean) {
@@ -122,13 +140,29 @@ export function TaskCalendarView({
       isMounted = false;
       subscription.remove();
       monthAnimation.current?.stop();
+      swipeAnimation.current?.stop();
       if (monthAnimationFrame.current !== null) {
         cancelAnimationFrame(monthAnimationFrame.current);
       }
     };
-  }, [monthOpacity, monthTranslateX]);
+  }, [monthOpacity, monthTranslateX, swipeTranslateX]);
 
-  function moveMonth(offset: number) {
+  function moveMonth(offset: number, interruptCurrentTransition = false) {
+    if (interruptCurrentTransition) {
+      monthAnimation.current?.stop();
+      swipeAnimation.current?.stop();
+      if (monthAnimationFrame.current !== null) {
+        cancelAnimationFrame(monthAnimationFrame.current);
+        monthAnimationFrame.current = null;
+      }
+      monthTransitioning.current = false;
+      swipeTransitioning.current = false;
+      swipeTranslateX.setValue(0);
+    } else if (monthTransitioning.current || swipeTransitioning.current) {
+      return;
+    }
+
+    monthTransitioning.current = true;
     const current = displayedMonthRef.current;
     const next = new Date(current.getFullYear(), current.getMonth() + offset, 1);
     displayedMonthRef.current = next;
@@ -144,6 +178,7 @@ export function TaskCalendarView({
     if (reduceMotion.current) {
       monthOpacity.setValue(1);
       monthTranslateX.setValue(0);
+      monthTransitioning.current = false;
       return;
     }
 
@@ -165,9 +200,93 @@ export function TaskCalendarView({
           useNativeDriver: true,
         }),
       ]);
-      monthAnimation.current.start();
+      monthAnimation.current.start(() => {
+        monthTransitioning.current = false;
+      });
     });
   }
+
+  function resetSwipe() {
+    swipeAnimation.current?.stop();
+
+    if (reduceMotion.current) {
+      swipeTranslateX.setValue(0);
+      swipeTransitioning.current = false;
+      return;
+    }
+
+    swipeAnimation.current = Animated.spring(swipeTranslateX, {
+      bounciness: 5,
+      speed: 17,
+      toValue: 0,
+      useNativeDriver: true,
+    });
+    swipeAnimation.current.start(() => {
+      swipeTransitioning.current = false;
+    });
+  }
+
+  function commitSwipe(offset: number) {
+    swipeAnimation.current?.stop();
+    swipeTransitioning.current = true;
+
+    if (reduceMotion.current) {
+      swipeTranslateX.setValue(0);
+      swipeTransitioning.current = false;
+      moveMonth(offset);
+      return;
+    }
+
+    swipeAnimation.current = Animated.timing(swipeTranslateX, {
+      duration: 120,
+      easing: Easing.out(Easing.cubic),
+      toValue: offset > 0 ? -SWIPE_COMMIT_OFFSET : SWIPE_COMMIT_OFFSET,
+      useNativeDriver: true,
+    });
+    swipeAnimation.current.start(({ finished }) => {
+      swipeTranslateX.setValue(0);
+      swipeTransitioning.current = false;
+      if (finished) moveMonth(offset);
+    });
+  }
+
+  const swipeThreshold = Math.min(88, width * 0.2);
+  // Vertical drift fails the gesture so scrolling the surrounding view remains natural.
+  const monthSwipeGesture = Gesture.Pan()
+    .runOnJS(true)
+    .activeOffsetX([-SWIPE_ACTIVATION_DISTANCE, SWIPE_ACTIVATION_DISTANCE])
+    .failOffsetY([-10, 10])
+    .onBegin(() => {
+      if (monthTransitioning.current || swipeTransitioning.current) return;
+      swipeAnimation.current?.stop();
+    })
+    .onUpdate(({ translationX }) => {
+      if (reduceMotion.current || monthTransitioning.current || swipeTransitioning.current) return;
+      swipeTranslateX.setValue(
+        Math.max(-SWIPE_MAX_OFFSET, Math.min(SWIPE_MAX_OFFSET, translationX)),
+      );
+    })
+    .onEnd(({ translationX, velocityX }) => {
+      if (monthTransitioning.current || swipeTransitioning.current) return;
+
+      const shouldChangeMonth =
+        Math.abs(translationX) >= swipeThreshold || Math.abs(velocityX) >= SWIPE_COMMIT_VELOCITY;
+
+      if (!shouldChangeMonth) {
+        // An incomplete gesture springs calmly back to the current month.
+        swipeTransitioning.current = true;
+        resetSwipe();
+        return;
+      }
+
+      commitSwipe(translationX < 0 || (translationX === 0 && velocityX < 0) ? 1 : -1);
+    })
+    .onFinalize((_event, success) => {
+      if (!success && !swipeTransitioning.current && !monthTransitioning.current) {
+        swipeTransitioning.current = true;
+        resetSwipe();
+      }
+    });
 
   const monthTransitionStyle = {
     opacity: monthOpacity,
@@ -186,8 +305,9 @@ export function TaskCalendarView({
           <Pressable
             accessibilityLabel="Previous month"
             accessibilityRole="button"
-            onPress={() => moveMonth(-1)}
-            style={styles.monthButton}
+            hitSlop={12}
+            onPress={() => moveMonth(-1, true)}
+            style={({ pressed }) => [styles.monthButton, pressed && styles.monthButtonPressed]}
           >
             <ChevronLeft color={theme.colors.textMuted} size={22} />
           </Pressable>
@@ -199,69 +319,80 @@ export function TaskCalendarView({
           <Pressable
             accessibilityLabel="Next month"
             accessibilityRole="button"
-            onPress={() => moveMonth(1)}
-            style={styles.monthButton}
+            hitSlop={12}
+            onPress={() => moveMonth(1, true)}
+            style={({ pressed }) => [styles.monthButton, pressed && styles.monthButtonPressed]}
           >
             <ChevronRight color={theme.colors.textMuted} size={22} />
           </Pressable>
         </View>
 
-        <View style={styles.weekRow}>
-          {weekdayLabels.map((label, index) => (
-            <AppText
-              key={`${label}-${index}`}
-              maxFontSizeMultiplier={1.4}
-              muted
-              style={styles.weekday}
-            >
-              {label}
-            </AppText>
-          ))}
-        </View>
-
-        <Animated.View style={[styles.daysGrid, monthTransitionStyle]}>
-          {days.map((date, index) => {
-            if (!date) return <View key={`empty-${index}`} style={styles.dayCell} />;
-            const selected = isSameDay(date, selectedDate);
-            const isToday = isSameDay(date, today);
-            const hasTasks = taskDates.has(toDateKey(date));
-            return (
-              <Pressable
-                accessibilityLabel={new Intl.DateTimeFormat(undefined, {
-                  dateStyle: 'full',
-                }).format(date)}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                key={toDateKey(date)}
-                onPress={() => onSelectDate(date)}
-                style={styles.dayCell}
-              >
-                <View
-                  style={[
-                    styles.dayCircle,
-                    {
-                      width: dayCircleSize,
-                      height: dayCircleSize,
-                      borderRadius: dayCircleSize / 2,
-                    },
-                    selected && { backgroundColor: theme.colors.primary },
-                    isToday && !selected && { borderColor: theme.colors.primary, borderWidth: 1 },
-                  ]}
+        <GestureDetector gesture={monthSwipeGesture}>
+          <Animated.View style={{ transform: [{ translateX: swipeTranslateX }] }}>
+            <View style={styles.weekRow}>
+              {weekdayLabels.map((label, index) => (
+                <AppText
+                  key={`${label}-${index}`}
+                  maxFontSizeMultiplier={1.4}
+                  muted
+                  style={styles.weekday}
                 >
-                  <AppText
-                    maxFontSizeMultiplier={1.4}
-                    style={[styles.dayText, { color: selected ? '#FFFFFF' : theme.colors.text }]}
+                  {label}
+                </AppText>
+              ))}
+            </View>
+
+            <Animated.View style={[styles.daysGrid, monthTransitionStyle]}>
+              {days.map((date, index) => {
+                if (!date) return <View key={`empty-${index}`} style={styles.dayCell} />;
+                const selected = isSameDay(date, selectedDate);
+                const isToday = isSameDay(date, today);
+                const hasTasks = taskDates.has(toDateKey(date));
+                return (
+                  <Pressable
+                    accessibilityLabel={new Intl.DateTimeFormat(undefined, {
+                      dateStyle: 'full',
+                    }).format(date)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    key={toDateKey(date)}
+                    onPress={() => onSelectDate(date)}
+                    style={styles.dayCell}
                   >
-                    {date.getDate()}
-                  </AppText>
-                </View>
-                {hasTasks ? (
-                  <View style={[styles.taskDot, { backgroundColor: theme.colors.priorityHigh }]} />
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </Animated.View>
+                    <View
+                      style={[
+                        styles.dayCircle,
+                        {
+                          width: dayCircleSize,
+                          height: dayCircleSize,
+                          borderRadius: dayCircleSize / 2,
+                        },
+                        selected && { backgroundColor: theme.colors.primary },
+                        isToday &&
+                          !selected && { borderColor: theme.colors.primary, borderWidth: 1 },
+                      ]}
+                    >
+                      <AppText
+                        maxFontSizeMultiplier={1.4}
+                        style={[
+                          styles.dayText,
+                          { color: selected ? '#FFFFFF' : theme.colors.text },
+                        ]}
+                      >
+                        {date.getDate()}
+                      </AppText>
+                    </View>
+                    {hasTasks ? (
+                      <View
+                        style={[styles.taskDot, { backgroundColor: theme.colors.priorityHigh }]}
+                      />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </Animated.View>
+          </Animated.View>
+        </GestureDetector>
       </View>
 
       <Animated.View style={[styles.agenda, monthTransitionStyle]}>
@@ -299,6 +430,7 @@ const styles = StyleSheet.create({
   calendarCard: { gap: 12, borderRadius: 18, padding: 16 },
   monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   monthButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  monthButtonPressed: { opacity: 0.55, transform: [{ scale: 0.94 }] },
   monthLabelContainer: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 6 },
   weekRow: { flexDirection: 'row' },
   weekday: { width: '14.2857%', textAlign: 'center', fontSize: 11 },

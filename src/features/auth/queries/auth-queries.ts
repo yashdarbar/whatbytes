@@ -9,16 +9,19 @@ import {
 import type { AuthUser } from '../types';
 import { firebaseAuth } from '@/lib/firebase';
 
+// Keep Firebase's full User object out of the UI-facing auth layer.
 function toAuthUser(user: User | null): AuthUser | null {
   if (!user) return null;
   return { uid: user.uid, email: user.email ?? '' };
 }
 
+/** Waits for Firebase persistence to restore before returning the initial session. */
 export async function getAuthSession(): Promise<AuthUser | null> {
   await firebaseAuth.authStateReady();
   return toAuthUser(firebaseAuth.currentUser);
 }
 
+/** Observes sign-in, sign-out, and restored-session changes from Firebase Auth. */
 export function subscribeToAuthSession(
   onSession: (user: AuthUser | null) => void,
   onError?: (error: Error) => void,
@@ -49,6 +52,7 @@ export async function signOut(): Promise<void> {
 }
 
 export function getAuthErrorMessage(error: unknown): string {
+  // Firebase errors are normalized here so components do not depend on provider codes.
   const code =
     typeof error === 'object' && error !== null && 'code' in error
       ? String((error as { code: unknown }).code)

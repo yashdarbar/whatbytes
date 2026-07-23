@@ -19,6 +19,7 @@ export const taskQueryKeys = {
   list: (userId: string) => ['tasks', userId] as const,
 };
 
+/** Returns the cached task collection, using an empty array while it loads. */
 export function useTasks(userId?: string) {
   const query = useQuery({
     queryKey: taskQueryKeys.list(userId ?? ''),
@@ -29,6 +30,10 @@ export function useTasks(userId?: string) {
   return { ...query, data: query.data ?? [] };
 }
 
+/**
+ * Connects the Firestore snapshot listener to TanStack Query. Components read
+ * only from the cache and therefore do not need to manage subscriptions.
+ */
 export function useTaskRealtimeSync(userId?: string) {
   const queryClient = useQueryClient();
 
@@ -42,11 +47,13 @@ export function useTaskRealtimeSync(userId?: string) {
   }, [queryClient, userId]);
 }
 
+/** Selects one task from the already-synchronized user task collection. */
 export function useTask(userId: string | undefined, taskId: string | undefined) {
   const query = useTasks(userId);
   return { ...query, data: query.data.find((task) => task.id === taskId) };
 }
 
+/** Exposes client-only filter state and actions from Zustand. */
 export function useTaskFilters() {
   const priorityFilter = useTaskFilterStore((state) => state.priorityFilter);
   const statusFilter = useTaskFilterStore((state) => state.statusFilter);
@@ -74,6 +81,7 @@ export function useTaskView() {
   return { viewMode, setViewMode };
 }
 
+/** Applies search, priority, and completion filters without changing server data. */
 export function useVisibleTasks(userId?: string) {
   const query = useTasks(userId);
   const { priorityFilter, searchQuery, statusFilter } = useTaskFilters();
@@ -91,12 +99,14 @@ export function useVisibleTasks(userId?: string) {
   return { ...query, data };
 }
 
+/** Groups visible tasks into the date sections rendered by the dashboard. */
 export function useTaskSections(userId?: string) {
   const query = useVisibleTasks(userId);
   const data = useMemo(() => groupTasksByDueDate(query.data), [query.data]);
   return { ...query, data };
 }
 
+/** Selects visible tasks for the active calendar day. */
 export function useTasksForDate(userId: string | undefined, date: Date) {
   const query = useVisibleTasks(userId);
   const data = useMemo(
@@ -114,6 +124,7 @@ function useTaskMutation<TVariables>(
   const mutation = useMutation({
     mutationFn,
     onSuccess: (_data, variables) => {
+      // The real-time listener normally supplies the change; invalidation is a safe fallback.
       void queryClient.invalidateQueries({
         queryKey: taskQueryKeys.list(getUserId(variables)),
       });

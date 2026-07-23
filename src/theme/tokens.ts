@@ -5,6 +5,7 @@ export const fontFamilies = {
   bold: 'Poppins_700Bold',
 } as const;
 
+// Shared semantic tokens keep spacing and typography identical between modes.
 const shared = {
   spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 },
   radius: { sm: 8, md: 12, lg: 20, pill: 999 },
@@ -36,6 +37,7 @@ export const lightTheme = {
     placeholder: '#9BA3B2',
     success: '#25855A',
     danger: '#C53D4A',
+    deleteAction: '#D94B52',
     priorityLow: '#6BC7A2',
     priorityMedium: '#8B83EE',
     priorityHigh: '#F39A55',
@@ -69,6 +71,7 @@ export const darkTheme = {
     placeholder: '#788195',
     success: '#55C38A',
     danger: '#F27682',
+    deleteAction: '#D94B52',
     priorityLow: '#55C38A',
     priorityMedium: '#9B95FF',
     priorityHigh: '#F5A365',
@@ -85,6 +88,7 @@ export const darkTheme = {
 export type AppTheme = typeof lightTheme | typeof darkTheme;
 export type ThemeMode = 'dark' | 'light';
 
+/** Returns semantic colors and effects for the selected persisted mode. */
 export function getTheme(mode: ThemeMode): AppTheme {
   return mode === 'dark' ? darkTheme : lightTheme;
 }
